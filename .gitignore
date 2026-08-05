@@ -9,3 +9,4 @@ data/uploads/work_types/*
 !data/uploads/work_types/.gitkeep
 data/backups/*
 !data/backups/.gitkeep
+deploy/pythonanywhere.env

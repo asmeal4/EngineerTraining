@@ -1,0 +1,52 @@
+================================================================================
+  نشر EngineerTraining على PythonAnywhere (حساب bayansoft)
+================================================================================
+
+1. المتطلبات
+--------------------------------------------------------------------------------
+  - حساب: https://www.pythonanywhere.com/user/bayansoft/
+  - خطة تدعم ASGI (الصفحة: Account → Upgrade)
+  - تفعيل ASGI إن لزم عبر Send feedback
+  - API token من: Account → API token
+
+
+2. خطوات النشر (مرة واحدة) — من Bash console
+--------------------------------------------------------------------------------
+     cd ~
+     git clone https://github.com/asmeal4/EngineerTraining.git
+     cd EngineerTraining
+     bash deploy/pythonanywhere-setup.sh
+
+   للنطاق الأوروبي:
+
+     PA_DOMAIN=bayansoft.eu.pythonanywhere.com bash deploy/pythonanywhere-setup.sh
+
+
+3. كلمة مرور المدير
+--------------------------------------------------------------------------------
+     nano ~/EngineerTraining/deploy/pythonanywhere.env
+
+   غيّر DEFAULT_PASSWORD ثم:
+
+     pa website reload --domain bayansoft.pythonanywhere.com
+
+
+4. فتح الموقع
+--------------------------------------------------------------------------------
+     https://bayansoft.pythonanywhere.com
+  - الجوال: 0500000000 (أو DEFAULT_ADMIN_PHONE)
+  - كلمة المرور: من pythonanywhere.env
+
+
+5. تحديث بعد تعديلات الكود
+--------------------------------------------------------------------------------
+     cd ~/EngineerTraining
+     git pull
+     source ~/.virtualenvs/EngineerTraining/bin/activate
+     pa website reload --domain bayansoft.pythonanywhere.com
+
+
+6. السجلات
+--------------------------------------------------------------------------------
+  /var/log/bayansoft.pythonanywhere.com.error.log
+  /var/log/bayansoft.pythonanywhere.com.server.log
