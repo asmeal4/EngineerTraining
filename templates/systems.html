@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}الأنظمة{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>الأنظمة</h1>
+    <p>قائمة الأنظمة وترتيبها</p>
+  </div>
+  <a class="btn" href="/systems/new">نظام جديد</a>
+</section>
+
+<div class="panel">
+  <div class="toolbar">
+    <form method="get" action="/systems" data-auto-filter>
+      <input type="search" name="q" value="{{ q }}" placeholder="بحث بالاسم أو الاختصار">
+      <button class="btn secondary" type="submit">بحث</button>
+    </form>
+  </div>
+  {% if systems %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>الترتيب</th>
+          <th>الاسم</th>
+          <th>الاختصار</th>
+          <th>التاريخ</th>
+          <th>أضافه</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in systems %}
+        <tr>
+          <td>{{ s.sort_order }}</td>
+          <td><strong>{{ s.name }}</strong></td>
+          <td>{{ s.abbreviation }}</td>
+          <td>{{ s.created_at or '—' }}</td>
+          <td>{{ s.created_by_name or '—' }}</td>
+          <td>
+            <div class="actions" style="margin:0">
+              <a class="btn ghost small" href="/systems/{{ s.id }}/edit">تعديل</a>
+              <form method="post" action="/systems/{{ s.id }}/delete" onsubmit="return confirm('نقل النظام إلى سلة المحذوفات؟');">
+                <button class="btn danger-soft small" type="submit">حذف</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">لا توجد أنظمة</div>
+  {% endif %}
+</div>
+{% endblock %}

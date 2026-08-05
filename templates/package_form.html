@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% from "partials/audit_meta.html" import audit_meta %}
+{% from "partials/multi_picker.html" import multi_picker %}
+{% block title %}{% if mode == 'new' %}باقة جديدة{% else %}تعديل باقة{% endif %}{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>{% if mode == 'new' %}باقة جديدة{% else %}تعديل باقة{% endif %}</h1>
+  </div>
+  <a class="btn ghost" href="/packages">رجوع</a>
+</section>
+
+<div class="panel">
+  <form method="post" action="{% if mode == 'new' %}/packages/new{% else %}/packages/{{ package.id }}/edit{% endif %}">
+    <div class="form-grid">
+      <div class="field">
+        <label for="name">الاسم</label>
+        <input id="name" name="name" required value="{{ package.name if package else '' }}">
+      </div>
+      <div class="field full">
+        {{ multi_picker(
+          all_systems,
+          package.system_ids if package else [],
+          field_name='system_ids',
+          label='نوع النظام',
+          placeholder='اختر نظاماً أو أكثر',
+          summary_id='selected-systems'
+        ) }}
+      </div>
+      <div class="field full">
+        {{ multi_picker(
+          all_work_types,
+          package.work_type_ids if package else [],
+          field_name='work_type_ids',
+          label='نوع العمل',
+          placeholder='اختر نوع عمل أو أكثر',
+          summary_id='selected-work-types'
+        ) }}
+      </div>
+      <div class="field full">
+        <label for="notes">ملاحظة</label>
+        <textarea id="notes" name="notes">{{ package.notes if package and package.notes else '' }}</textarea>
+      </div>
+    </div>
+
+    <div class="linked-customers-section" style="margin-top:18px">
+      <div class="linked-section-head">
+        <div>
+          <h2 class="section-title">العناصر المختارة</h2>
+          <p class="section-sub">الأنظمة وأنواع العمل المرتبطة بهذه الباقة</p>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+          <div class="linked-branches-label">الأنظمة</div>
+          <ul class="linked-list" id="selected-systems">
+            <li class="empty compact" data-empty>لم يُختر أي نظام</li>
+          </ul>
+        </div>
+        <div>
+          <div class="linked-branches-label">أنواع العمل</div>
+          <ul class="linked-list" id="selected-work-types">
+            <li class="empty compact" data-empty>لم يُختر أي نوع عمل</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    {% if package %}{{ audit_meta(package) }}{% endif %}
+    <div class="actions">
+      <button class="btn" type="submit">حفظ</button>
+      <a class="btn secondary" href="/packages">إلغاء</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

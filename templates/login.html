@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}تسجيل الدخول — تدريب المهندسين{% endblock %}
+{% block auth %}
+<div class="login-wrap">
+  <div class="login-card">
+    <h1>تدريب المهندسين</h1>
+    <p>أدخل رقم الجوال وكلمة المرور للوصول إلى النظام</p>
+    <form method="post" action="/login">
+      <input type="hidden" name="next" value="{{ next }}">
+      <div class="field">
+        <label for="phone">رقم الجوال</label>
+        <input id="phone" type="text" name="phone" required autofocus inputmode="tel" placeholder="مثال: 0500000000">
+      </div>
+      <div class="field">
+        <label for="password">كلمة المرور</label>
+        <input id="password" type="password" name="password" required>
+      </div>
+      <button class="btn" type="submit">دخول</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

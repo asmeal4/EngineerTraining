@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}أنواع العمل{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>نوع العمل</h1>
+    <p>أنواع العمل مع الشرح والصورة التعليمية</p>
+  </div>
+  <a class="btn" href="/work-types/new">نوع عمل جديد</a>
+</section>
+
+<div class="panel">
+  <div class="toolbar">
+    <form method="get" action="/work-types" data-auto-filter>
+      <input type="search" name="q" value="{{ q }}" placeholder="بحث بالاسم أو الاختصار">
+      <button class="btn secondary" type="submit">بحث</button>
+    </form>
+  </div>
+  {% if work_types %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>الاسم</th>
+          <th>الاختصار</th>
+          <th>شرح</th>
+          <th>أضافه</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for w in work_types %}
+        <tr>
+          <td><strong>{{ w.name }}</strong></td>
+          <td>{{ w.abbreviation }}</td>
+          <td>
+            {% if w.has_explanation %}
+            <span class="badge active">نعم</span>
+            {% else %}
+            <span class="badge unknown">لا</span>
+            {% endif %}
+          </td>
+          <td>{{ w.created_by_name or '—' }}</td>
+          <td>
+            <div class="actions" style="margin:0">
+              <a class="btn ghost small" href="/work-types/{{ w.id }}/edit">تعديل</a>
+              <form method="post" action="/work-types/{{ w.id }}/delete" onsubmit="return confirm('نقل إلى سلة المحذوفات؟');">
+                <button class="btn danger-soft small" type="submit">حذف</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">لا توجد أنواع عمل</div>
+  {% endif %}
+</div>
+{% endblock %}

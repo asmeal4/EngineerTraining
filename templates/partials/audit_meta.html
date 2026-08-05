@@ -1,0 +1,8 @@
+{% macro audit_meta(record) %}
+{% if record and (record.created_by_name or record.updated_by_name or record.updated_at or record.created_at) %}
+<div class="meta-list" style="margin:12px 0 4px;padding-top:12px;border-top:1px solid #e5ebe7">
+  <div class="meta-item"><div class="k">أضافه</div><div class="v">{{ record.created_by_name or '—' }}{% if record.created_at %} — {{ record.created_at }}{% endif %}</div></div>
+  <div class="meta-item"><div class="k">آخر تعديل</div><div class="v">{% if record.updated_by_name or record.updated_at %}{{ record.updated_by_name or '—' }}{% if record.updated_at %} — {{ record.updated_at }}{% endif %}{% else %}—{% endif %}</div></div>
+</div>
+{% endif %}
+{% endmacro %}

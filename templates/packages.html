@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}الباقات{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>نوع الباقات</h1>
+    <p>باقات مربوطة بالأنظمة وأنواع العمل — اضغط نوع العمل لعرض الشرح والصورة</p>
+  </div>
+  <a class="btn" href="/packages/new">باقة جديدة</a>
+</section>
+
+<div class="panel">
+  <div class="toolbar">
+    <form method="get" action="/packages" data-auto-filter>
+      <input type="search" name="q" value="{{ q }}" placeholder="بحث بالاسم أو الملاحظة">
+      <button class="btn secondary" type="submit">بحث</button>
+    </form>
+  </div>
+  {% if packages %}
+  <div class="table-wrap">
+    <table class="packages-table">
+      <thead>
+        <tr>
+          <th>الاسم</th>
+          <th>الأنظمة</th>
+          <th>نوع العمل</th>
+          <th>ملاحظة</th>
+          <th>أضافه</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in packages %}
+        <tr class="package-main-row" data-package-row="{{ p.id }}">
+          <td><strong>{{ p.name }}</strong></td>
+          <td>
+            {% for s in p.systems %}
+            <span class="badge brand">{{ s.abbreviation }}</span>
+            {% else %}—{% endfor %}
+          </td>
+          <td>
+            {% if p.work_types %}
+            <div class="package-work-badges">
+              {% for w in p.work_types %}
+              <button type="button"
+                class="badge active pkg-work-btn"
+                data-work-type-toggle
+                data-package-id="{{ p.id }}"
+                data-work-id="{{ w.id }}"
+                aria-expanded="false">
+                {{ w.name }} ({{ w.abbreviation }})
+              </button>
+              {% endfor %}
+            </div>
+            {% else %}
+            —
+            {% endif %}
+          </td>
+          <td>{{ p.notes or '—' }}</td>
+          <td>{{ p.created_by_name or '—' }}</td>
+          <td>
+            <div class="actions" style="margin:0">
+              <a class="btn ghost small" href="/packages/{{ p.id }}/edit">تعديل</a>
+              <form method="post" action="/packages/{{ p.id }}/delete" onsubmit="return confirm('نقل إلى سلة المحذوفات؟');">
+                <button class="btn danger-soft small" type="submit">حذف</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        <tr class="package-detail-row" data-package-detail="{{ p.id }}" hidden>
+          <td colspan="6">
+            <div class="work-type-detail" data-detail-panel="{{ p.id }}">
+              {% for w in p.work_types %}
+              <div class="work-type-detail-item" data-work-detail="{{ w.id }}" hidden>
+                <div class="work-type-detail-head">
+                  <strong>{{ w.name }}</strong>
+                  <span class="badge brand">{{ w.abbreviation }}</span>
+                </div>
+                {% if w.has_explanation and (w.explanation or w.image_path) %}
+                  {% if w.explanation %}
+                  <div class="work-type-explanation">{{ w.explanation }}</div>
+                  {% endif %}
+                  {% if w.image_path %}
+                  <div class="work-type-image">
+                    <img src="/uploads/{{ w.image_path }}" alt="{{ w.name }}">
+                  </div>
+                  {% endif %}
+                {% else %}
+                <p class="empty compact" style="padding:8px 0;margin:0">لا يوجد شرح أو صورة لهذا النوع</p>
+                {% endif %}
+              </div>
+              {% endfor %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">لا توجد باقات</div>
+  {% endif %}
+</div>
+{% endblock %}

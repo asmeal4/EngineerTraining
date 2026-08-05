@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% from "partials/audit_meta.html" import audit_meta %}
+{% block title %}{% if mode == 'new' %}نوع عمل جديد{% else %}تعديل نوع عمل{% endif %}{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>{% if mode == 'new' %}نوع عمل جديد{% else %}تعديل نوع عمل{% endif %}</h1>
+  </div>
+  <a class="btn ghost" href="/work-types">رجوع</a>
+</section>
+
+<div class="panel">
+  <form method="post" enctype="multipart/form-data"
+    action="{% if mode == 'new' %}/work-types/new{% else %}/work-types/{{ work_type.id }}/edit{% endif %}">
+    <div class="form-grid">
+      <div class="field">
+        <label for="name">الاسم</label>
+        <input id="name" name="name" required value="{{ work_type.name if work_type else '' }}">
+      </div>
+      <div class="field">
+        <label for="abbreviation">الاختصار</label>
+        <input id="abbreviation" name="abbreviation" required value="{{ work_type.abbreviation if work_type else '' }}">
+      </div>
+      <div class="field checkbox-row full" style="margin-top:8px">
+        <input type="checkbox" id="has_explanation" name="has_explanation" value="1"
+          data-toggle-explanation
+          {% if work_type and work_type.has_explanation %}checked{% endif %}>
+        <label for="has_explanation" style="margin:0">إضافة شرح</label>
+      </div>
+      <div class="full" id="explanation-tools" {% if not work_type or not work_type.has_explanation %}hidden{% endif %}>
+        <div class="actions" style="margin-top:0">
+          <button type="button" class="btn secondary" data-open-float="explanation-float">نافذة الشرح</button>
+          <button type="button" class="btn secondary" data-open-float="image-float">نافذة الصورة</button>
+        </div>
+      </div>
+    </div>
+
+    {# Hidden fields synced from floating panels #}
+    <textarea name="explanation" id="explanation-field" hidden>{{ work_type.explanation if work_type and work_type.explanation else '' }}</textarea>
+    <input type="file" name="image" id="image-field" accept="image/*" hidden>
+    <input type="hidden" name="clear_image" id="clear-image-field" value="0">
+
+    {% if work_type %}{{ audit_meta(work_type) }}{% endif %}
+    <div class="actions">
+      <button class="btn" type="submit">حفظ</button>
+      <a class="btn secondary" href="/work-types">إلغاء</a>
+    </div>
+  </form>
+</div>
+
+{# Floating windows — can both stay open #}
+<div class="float-window" id="explanation-float" hidden>
+  <div class="float-window-head">
+    <strong>إضافة شرح</strong>
+    <button type="button" class="btn ghost small" data-close-float="explanation-float">إغلاق</button>
+  </div>
+  <div class="float-window-body">
+    <textarea id="explanation-editor" rows="8" placeholder="اكتب الشرح التعليمي هنا...">{{ work_type.explanation if work_type and work_type.explanation else '' }}</textarea>
+  </div>
+</div>
+
+<div class="float-window" id="image-float" hidden style="top:140px;left:40px;right:auto">
+  <div class="float-window-head">
+    <strong>إضافة صورة</strong>
+    <button type="button" class="btn ghost small" data-close-float="image-float">إغلاق</button>
+  </div>
+  <div class="float-window-body">
+    {% if work_type and work_type.image_path %}
+    <div style="margin-bottom:12px">
+      <img src="/uploads/{{ work_type.image_path }}" alt="صورة الشرح" style="max-width:100%;border-radius:10px;border:1px solid var(--line)">
+    </div>
+    <label class="checkbox-row" style="margin:0 0 12px">
+      <input type="checkbox" id="clear-image-check">
+      <span>حذف الصورة الحالية</span>
+    </label>
+    {% endif %}
+    <input type="file" id="image-editor" accept="image/*">
+    <p class="field-hint" style="margin-top:8px">JPG / PNG / GIF / WEBP — حتى 8 ميجا</p>
+  </div>
+</div>
+{% endblock %}

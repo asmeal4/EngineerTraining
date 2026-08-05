@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "partials/audit_meta.html" import audit_meta %}
+{% block title %}{% if mode == 'new' %}نظام جديد{% else %}تعديل نظام{% endif %}{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>{% if mode == 'new' %}نظام جديد{% else %}تعديل نظام{% endif %}</h1>
+  </div>
+  <a class="btn ghost" href="/systems">رجوع</a>
+</section>
+
+<div class="panel">
+  <form method="post" action="{% if mode == 'new' %}/systems/new{% else %}/systems/{{ system.id }}/edit{% endif %}">
+    <div class="form-grid">
+      <div class="field">
+        <label for="name">الاسم</label>
+        <input id="name" name="name" required value="{{ system.name if system else '' }}">
+      </div>
+      <div class="field">
+        <label for="abbreviation">الاختصار</label>
+        <input id="abbreviation" name="abbreviation" required value="{{ system.abbreviation if system else '' }}">
+      </div>
+      <div class="field">
+        <label for="sort_order">الترتيب</label>
+        <input id="sort_order" name="sort_order" type="number" value="{{ system.sort_order if system else 0 }}">
+      </div>
+    </div>
+    {% if system %}{{ audit_meta(system) }}{% endif %}
+    <div class="actions">
+      <button class="btn" type="submit">حفظ</button>
+      <a class="btn secondary" href="/systems">إلغاء</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

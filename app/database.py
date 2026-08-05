@@ -1,0 +1,202 @@
+import sqlite3
+from contextlib import contextmanager
+from datetime import datetime
+from typing import Iterator, Optional
+
+from .config import (
+    DATABASE_PATH,
+    DEFAULT_ADMIN_NAME,
+    DEFAULT_ADMIN_PHONE,
+    DEFAULT_PASSWORD,
+)
+
+USER_ROLES = ("admin", "user")
+
+ROLE_LABELS = {
+    "admin": "مدير",
+    "user": "مستخدم",
+}
+
+
+def role_label(role: Optional[str]) -> str:
+    return ROLE_LABELS.get(role or "user", role or "مستخدم")
+
+
+def now_iso() -> str:
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def get_connection() -> sqlite3.Connection:
+    conn = sqlite3.connect(DATABASE_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
+@contextmanager
+def db_session() -> Iterator[sqlite3.Connection]:
+    conn = get_connection()
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def _column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
+    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    return any(row["name"] == column for row in rows)
+
+
+def _ensure_soft_delete_columns(conn: sqlite3.Connection, tables: list[str]) -> None:
+    for table in tables:
+        if not _column_exists(conn, table, "deleted_at"):
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN deleted_at TEXT")
+        if not _column_exists(conn, table, "deleted_by"):
+            conn.execute(
+                f"ALTER TABLE {table} ADD COLUMN deleted_by INTEGER "
+                f"REFERENCES users(id)"
+            )
+        conn.execute(
+            f"CREATE INDEX IF NOT EXISTS idx_{table}_deleted_at "
+            f"ON {table}(deleted_at)"
+        )
+
+
+def seed_admin(conn: sqlite3.Connection) -> None:
+    count = conn.execute("SELECT COUNT(*) AS c FROM users").fetchone()["c"]
+    if count:
+        return
+    from .auth import hash_password
+
+    conn.execute(
+        """
+        INSERT INTO users
+        (name, phone, password_hash, role, is_active, created_at)
+        VALUES (?, ?, ?, 'admin', 1, ?)
+        """,
+        (
+            DEFAULT_ADMIN_NAME,
+            DEFAULT_ADMIN_PHONE,
+            hash_password(DEFAULT_PASSWORD),
+            now_iso(),
+        ),
+    )
+
+
+def init_db() -> None:
+    with db_session() as conn:
+        conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                phone TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'user',
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT,
+                updated_at TEXT,
+                created_by INTEGER,
+                updated_by INTEGER,
+                deleted_at TEXT,
+                deleted_by INTEGER
+            );
+
+            CREATE TABLE IF NOT EXISTS systems (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                abbreviation TEXT NOT NULL,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT,
+                updated_at TEXT,
+                created_by INTEGER REFERENCES users(id),
+                updated_by INTEGER REFERENCES users(id),
+                deleted_at TEXT,
+                deleted_by INTEGER REFERENCES users(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS work_types (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                abbreviation TEXT NOT NULL,
+                has_explanation INTEGER NOT NULL DEFAULT 0,
+                explanation TEXT,
+                image_path TEXT,
+                created_at TEXT,
+                updated_at TEXT,
+                created_by INTEGER REFERENCES users(id),
+                updated_by INTEGER REFERENCES users(id),
+                deleted_at TEXT,
+                deleted_by INTEGER REFERENCES users(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS packages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                notes TEXT,
+                created_at TEXT,
+                updated_at TEXT,
+                created_by INTEGER REFERENCES users(id),
+                updated_by INTEGER REFERENCES users(id),
+                deleted_at TEXT,
+                deleted_by INTEGER REFERENCES users(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS package_systems (
+                package_id INTEGER NOT NULL,
+                system_id INTEGER NOT NULL,
+                PRIMARY KEY (package_id, system_id),
+                FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE,
+                FOREIGN KEY (system_id) REFERENCES systems(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS package_work_types (
+                package_id INTEGER NOT NULL,
+                work_type_id INTEGER NOT NULL,
+                PRIMARY KEY (package_id, work_type_id),
+                FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE,
+                FOREIGN KEY (work_type_id) REFERENCES work_types(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS activity_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER REFERENCES users(id),
+                action TEXT NOT NULL,
+                entity_type TEXT,
+                entity_id INTEGER,
+                details TEXT,
+                created_at TEXT
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
+            CREATE INDEX IF NOT EXISTS idx_systems_sort ON systems(sort_order);
+            CREATE INDEX IF NOT EXISTS idx_activity_created_at
+                ON activity_log(created_at);
+            CREATE INDEX IF NOT EXISTS idx_activity_user ON activity_log(user_id);
+            CREATE INDEX IF NOT EXISTS idx_activity_entity
+                ON activity_log(entity_type, entity_id);
+            """
+        )
+        _ensure_soft_delete_columns(
+            conn,
+            ["users", "systems", "work_types", "packages"],
+        )
+        # Drop legacy install-type tables if present (replaced by work types)
+        conn.execute("DROP TABLE IF EXISTS package_install_types")
+        conn.execute("DROP TABLE IF EXISTS install_types")
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS package_work_types (
+                package_id INTEGER NOT NULL,
+                work_type_id INTEGER NOT NULL,
+                PRIMARY KEY (package_id, work_type_id),
+                FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE,
+                FOREIGN KEY (work_type_id) REFERENCES work_types(id)
+            )
+            """
+        )
+        seed_admin(conn)

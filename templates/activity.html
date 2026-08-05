@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}سجل النشاط{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>سجل النشاط</h1>
+    <p>تتبع إضافات وتعديلات وحذف المستخدمين</p>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="toolbar">
+    <form method="get" action="/activity" data-auto-filter style="width:100%">
+      <input type="search" name="q" value="{{ q }}" placeholder="بحث في التفاصيل...">
+      <select name="user_id">
+        <option value="">كل المستخدمين</option>
+        {% for u in users %}
+        <option value="{{ u.id }}" {% if user_id == u.id|string %}selected{% endif %}>{{ u.name }}</option>
+        {% endfor %}
+      </select>
+      <select name="action">
+        <option value="">كل الإجراءات</option>
+        {% for key, label in actions.items() %}
+        <option value="{{ key }}" {% if action == key %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <select name="entity_type">
+        <option value="">كل الكيانات</option>
+        {% for key, label in entities.items() %}
+        <option value="{{ key }}" {% if entity_type == key %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <input type="date" name="date_from" value="{{ date_from }}" title="من تاريخ">
+      <input type="date" name="date_to" value="{{ date_to }}" title="إلى تاريخ">
+      <button class="btn secondary" type="submit">بحث</button>
+      <a class="btn ghost" href="/activity">مسح</a>
+    </form>
+  </div>
+  {% if items %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>الوقت</th>
+          <th>المستخدم</th>
+          <th>الإجراء</th>
+          <th>الكيان</th>
+          <th>التفاصيل</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td>{{ item.created_at }}</td>
+          <td>{{ item.user_name or '—' }}</td>
+          <td><span class="badge brand">{{ item.action_label }}</span></td>
+          <td>{{ item.entity_label }}{% if item.entity_id %} #{{ item.entity_id }}{% endif %}</td>
+          <td>{{ item.details or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">لا توجد نتائج</div>
+  {% endif %}
+</div>
+{% endblock %}

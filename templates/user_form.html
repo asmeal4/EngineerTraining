@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "partials/audit_meta.html" import audit_meta %}
+{% block title %}{% if mode == 'new' %}مستخدم جديد{% else %}تعديل مستخدم{% endif %}{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>{% if mode == 'new' %}مستخدم جديد{% else %}تعديل مستخدم{% endif %}</h1>
+  </div>
+  <a class="btn ghost" href="/users">رجوع</a>
+</section>
+
+<div class="panel">
+  <form method="post" action="{% if mode == 'new' %}/users/new{% else %}/users/{{ user.id }}/edit{% endif %}">
+    <div class="form-grid">
+      <div class="field">
+        <label for="name">الاسم</label>
+        <input id="name" name="name" required value="{{ user.name if user else '' }}">
+      </div>
+      <div class="field">
+        <label for="phone">رقم الجوال</label>
+        <input id="phone" name="phone" required inputmode="tel" value="{{ user.phone if user else '' }}">
+      </div>
+      <div class="field">
+        <label for="password">كلمة المرور{% if mode == 'edit' %} <span style="color:var(--muted);font-weight:400">(اتركها فارغة إن لم تتغير)</span>{% endif %}</label>
+        <input id="password" name="password" type="password" {% if mode == 'new' %}required{% endif %}
+          {% if not is_admin and mode == 'edit' and current_user and user and current_user.id != user.id %}disabled{% endif %}>
+        {% if not is_admin and mode == 'edit' and current_user and user and current_user.id == user.id %}
+        <p class="field-hint">يمكنك تغيير كلمة مرورك فقط</p>
+        {% elif not is_admin %}
+        <p class="field-hint">لا يمكن تعديل كلمة مرور مستخدم آخر</p>
+        {% endif %}
+      </div>
+      {% if is_admin %}
+      <div class="field">
+        <label for="role">نوع المستخدم</label>
+        <select id="role" name="role">
+          <option value="user" {% if user and user.role == 'user' %}selected{% endif %}>مستخدم</option>
+          <option value="admin" {% if user and user.role == 'admin' %}selected{% endif %}>مدير</option>
+        </select>
+      </div>
+      <div class="field checkbox-row" style="margin-top:28px">
+        <input type="checkbox" id="is_active" name="is_active" value="1"
+          {% if not user or user.is_active %}checked{% endif %}>
+        <label for="is_active" style="margin:0">حساب نشط</label>
+      </div>
+      {% else %}
+      <input type="hidden" name="role" value="{{ user.role if user else 'user' }}">
+      <input type="hidden" name="is_active" value="{{ '1' if not user or user.is_active else '0' }}">
+      {% endif %}
+    </div>
+    {% if user %}{{ audit_meta(user) }}{% endif %}
+    <div class="actions">
+      <button class="btn" type="submit">حفظ</button>
+      <a class="btn secondary" href="/users">إلغاء</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

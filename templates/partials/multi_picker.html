@@ -1,0 +1,25 @@
+{% macro multi_picker(item_list=None, selected_ids=None, field_name='ids', label='اختر', placeholder='اختر عناصر', summary_id=None) %}
+{% set item_list = item_list if item_list is not none else [] %}
+{% set selected_ids = selected_ids if selected_ids is not none else [] %}
+<div class="system-multi-picker" data-system-multi-picker data-placeholder="{{ placeholder }}"{% if summary_id %} data-summary-target="{{ summary_id }}"{% endif %}>
+  {% if label %}<label class="system-multi-label">{{ label }}</label>{% endif %}
+  <button type="button" class="system-multi-trigger" aria-haspopup="listbox" aria-expanded="false">
+    <span class="system-multi-summary is-placeholder">{{ placeholder }}</span>
+    <span class="system-multi-caret" aria-hidden="true">▾</span>
+  </button>
+  <div class="system-multi-panel" hidden>
+    {% if item_list %}
+    {% for s in item_list %}
+    <label class="system-multi-option">
+      <input type="checkbox" name="{{ field_name }}" value="{{ s.id }}"
+        data-label="{{ s.name }} ({{ s.abbreviation }})"
+        {% if s.id in selected_ids or (s.id|string) in selected_ids %}checked{% endif %}>
+      <span>{{ s.name }} ({{ s.abbreviation }})</span>
+    </label>
+    {% endfor %}
+    {% else %}
+    <div class="system-multi-empty">لا توجد عناصر</div>
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}لوحة التحكم — تدريب المهندسين{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>لوحة التحكم</h1>
+    <p>نظرة سريعة على أنظمة التدريب والتركيب</p>
+  </div>
+  <div class="actions">
+    <a class="btn" href="/packages/new">باقة جديدة</a>
+    <a class="btn secondary" href="/work-types/new">نوع عمل</a>
+    <a class="btn secondary" href="/systems/new">نظام جديد</a>
+  </div>
+</section>
+
+<div class="stats">
+  <a class="stat brand" href="/users" style="text-decoration:none;color:inherit">
+    <div class="label">المستخدمون</div>
+    <div class="value">{{ stats.user_count }}</div>
+  </a>
+  <a class="stat" href="/systems" style="text-decoration:none;color:inherit">
+    <div class="label">الأنظمة</div>
+    <div class="value">{{ stats.system_count }}</div>
+  </a>
+  <a class="stat" href="/work-types" style="text-decoration:none;color:inherit">
+    <div class="label">أنواع العمل</div>
+    <div class="value">{{ stats.work_type_count }}</div>
+  </a>
+  <a class="stat ok" href="/packages" style="text-decoration:none;color:inherit">
+    <div class="label">الباقات</div>
+    <div class="value">{{ stats.package_count }}</div>
+  </a>
+  <a class="stat warn" href="/users" style="text-decoration:none;color:inherit">
+    <div class="label">نشطون</div>
+    <div class="value">{{ stats.active_users }}</div>
+  </a>
+  <a class="stat danger" href="/trash" style="text-decoration:none;color:inherit">
+    <div class="label">سلة المحذوفات</div>
+    <div class="value">{{ stats.trash_count }}</div>
+  </a>
+</div>
+{% endblock %}

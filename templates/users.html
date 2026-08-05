@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}المستخدمون{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>المستخدمون</h1>
+    <p>إدارة حسابات المهندسين والمدراء</p>
+  </div>
+  {% if is_admin %}
+  <a class="btn" href="/users/new">مستخدم جديد</a>
+  {% endif %}
+</section>
+
+<div class="panel">
+  <div class="toolbar">
+    <form method="get" action="/users" data-auto-filter>
+      <input type="search" name="q" value="{{ q }}" placeholder="بحث بالاسم أو الجوال">
+      <button class="btn secondary" type="submit">بحث</button>
+    </form>
+  </div>
+  {% if users %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>الاسم</th>
+          <th>نوع المستخدم</th>
+          <th>الجوال</th>
+          <th>الحالة</th>
+          <th>التاريخ</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td><strong>{{ u.name }}</strong></td>
+          <td><span class="badge brand">{{ u.role_label }}</span></td>
+          <td>{{ u.phone }}</td>
+          <td>
+            {% if u.is_active %}
+            <span class="badge active">نشط</span>
+            {% else %}
+            <span class="badge disabled">موقوف</span>
+            {% endif %}
+          </td>
+          <td>{{ u.created_at or '—' }}</td>
+          <td>
+            <div class="actions" style="margin:0">
+              {% if is_admin or (current_user and current_user.id == u.id) %}
+              <a class="btn ghost small" href="/users/{{ u.id }}/edit">تعديل</a>
+              {% endif %}
+              {% if is_admin %}
+              <form method="post" action="/users/{{ u.id }}/delete" onsubmit="return confirm('نقل المستخدم إلى سلة المحذوفات؟');">
+                <button class="btn danger-soft small" type="submit">حذف</button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">لا يوجد مستخدمون</div>
+  {% endif %}
+</div>
+{% endblock %}

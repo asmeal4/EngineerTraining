@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}سلة المحذوفات{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>سلة المحذوفات</h1>
+    <p>السجلات المحذوفة — استرجاع أو حذف نهائي (للمدير)</p>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="toolbar">
+    <form method="get" action="/trash" data-auto-filter>
+      <input type="search" name="q" value="{{ q }}" placeholder="بحث في المحذوفات">
+      <button class="btn secondary" type="submit">بحث</button>
+    </form>
+  </div>
+  {% if items %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>النوع</th>
+          <th>العنصر</th>
+          <th>تفاصيل</th>
+          <th>حذف بواسطة</th>
+          <th>تاريخ الحذف</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td><span class="badge brand">{{ item.entity_label }}</span></td>
+          <td><strong>{{ item.title }}</strong></td>
+          <td>{{ item.subtitle or '—' }}</td>
+          <td>{{ item.deleted_by_name or '—' }}</td>
+          <td>{{ item.deleted_at or '—' }}</td>
+          <td>
+            <div class="actions" style="margin:0">
+              <form method="post" action="/trash/{{ item.entity }}/{{ item.id }}/restore">
+                <button class="btn secondary small" type="submit">استرجاع</button>
+              </form>
+              {% if is_admin %}
+              <form method="post" action="/trash/{{ item.entity }}/{{ item.id }}/purge"
+                onsubmit="return confirm('حذف نهائي لا يمكن التراجع عنه؟');">
+                <button class="btn danger small" type="submit">حذف نهائي</button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">سلة المحذوفات فارغة</div>
+  {% endif %}
+</div>
+{% endblock %}
