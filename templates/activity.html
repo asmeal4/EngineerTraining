@@ -46,10 +46,12 @@
       <span>يوم</span>
       <button class="btn secondary" type="submit">حذف الأقدم</button>
     </form>
+    <a class="btn secondary" href="/activity/clear-older?days=60">حذف الأقدم (صفحة تأكيد)</a>
     <form method="post" action="/activity/clear" style="display:inline"
       onsubmit="return confirm('مسح كل سجل النشاط؟ لا يمكن التراجع.');">
       <button class="btn danger" type="submit">مسح السجل بالكامل</button>
     </form>
+    <a class="btn danger" href="/activity/clear">مسح بالكامل (صفحة تأكيد)</a>
   </div>
   {% endif %}
 

@@ -661,19 +661,34 @@ def activity_list(
     )
 
 
+@app.get("/activity/clear", response_class=HTMLResponse)
 @app.post("/activity/clear")
-def activity_clear(request: Request):
+async def activity_clear(request: Request):
     if (redir := auth.require_admin(request)):
         return redir
+    if request.method == "GET":
+        return render(
+            request,
+            "activity_clear_confirm.html",
+            {"mode": "all", "days": 60},
+        )
     deleted = services.clear_activity_log()
     flash(request, f"تم مسح سجل النشاط بالكامل ({deleted} سجل)")
     return RedirectResponse("/activity", status_code=303)
 
 
+@app.get("/activity/clear-older", response_class=HTMLResponse)
 @app.post("/activity/clear-older")
 async def activity_clear_older(request: Request):
     if (redir := auth.require_admin(request)):
         return redir
+    if request.method == "GET":
+        days = request.query_params.get("days") or "60"
+        return render(
+            request,
+            "activity_clear_confirm.html",
+            {"mode": "older", "days": days},
+        )
     form = await request.form()
     raw = (form.get("days") or "60").strip()
     try:
@@ -683,6 +698,17 @@ async def activity_clear_older(request: Request):
     deleted = services.clear_activity_older_than(days)
     flash(request, f"تم حذف السجلات الأقدم من {days} يوم ({deleted} سجل)")
     return RedirectResponse("/activity", status_code=303)
+
+
+@app.get("/health")
+def health():
+    return JSONResponse(
+        {
+            "ok": True,
+            "app": "EngineerTraining",
+            "activity_clear": True,
+        }
+    )
 
 
 # --- Backup ---

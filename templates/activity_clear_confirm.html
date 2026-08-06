@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}تأكيد مسح سجل النشاط{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>تأكيد العملية</h1>
+    <p>
+      {% if mode == 'all' %}
+      مسح كل سجل النشاط — لا يمكن التراجع
+      {% else %}
+      حذف السجلات الأقدم من {{ days }} يوم
+      {% endif %}
+    </p>
+  </div>
+  <a class="btn ghost" href="/activity">رجوع</a>
+</section>
+
+<div class="panel">
+  {% if mode == 'all' %}
+  <form method="post" action="/activity/clear">
+    <p>هل أنت متأكد من مسح <strong>كل</strong> سجل النشاط؟</p>
+    <div class="actions">
+      <button class="btn danger" type="submit">نعم، امسح بالكامل</button>
+      <a class="btn secondary" href="/activity">إلغاء</a>
+    </div>
+  </form>
+  {% else %}
+  <form method="post" action="/activity/clear-older">
+    <div class="field" style="max-width:200px;margin-bottom:14px">
+      <label for="days">عدد الأيام</label>
+      <input id="days" type="number" name="days" min="1" value="{{ days }}">
+    </div>
+    <div class="actions">
+      <button class="btn danger" type="submit">نعم، احذف الأقدم</button>
+      <a class="btn secondary" href="/activity">إلغاء</a>
+    </div>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
