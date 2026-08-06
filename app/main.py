@@ -661,6 +661,30 @@ def activity_list(
     )
 
 
+@app.post("/activity/clear")
+def activity_clear(request: Request):
+    if (redir := auth.require_admin(request)):
+        return redir
+    deleted = services.clear_activity_log()
+    flash(request, f"تم مسح سجل النشاط بالكامل ({deleted} سجل)")
+    return RedirectResponse("/activity", status_code=303)
+
+
+@app.post("/activity/clear-older")
+async def activity_clear_older(request: Request):
+    if (redir := auth.require_admin(request)):
+        return redir
+    form = await request.form()
+    raw = (form.get("days") or "60").strip()
+    try:
+        days = max(1, int(raw))
+    except (TypeError, ValueError):
+        days = 60
+    deleted = services.clear_activity_older_than(days)
+    flash(request, f"تم حذف السجلات الأقدم من {days} يوم ({deleted} سجل)")
+    return RedirectResponse("/activity", status_code=303)
+
+
 # --- Backup ---
 
 @app.get("/backup", response_class=HTMLResponse)

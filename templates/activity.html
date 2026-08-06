@@ -33,9 +33,26 @@
       <input type="date" name="date_from" value="{{ date_from }}" title="من تاريخ">
       <input type="date" name="date_to" value="{{ date_to }}" title="إلى تاريخ">
       <button class="btn secondary" type="submit">بحث</button>
-      <a class="btn ghost" href="/activity">مسح</a>
+      <a class="btn ghost" href="/activity">مسح الفلاتر</a>
     </form>
   </div>
+
+  {% if is_admin %}
+  <div class="toolbar" style="margin-top:8px;gap:10px;flex-wrap:wrap;align-items:center">
+    <form method="post" action="/activity/clear-older" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"
+      onsubmit="var d=this.days.value||60; return confirm('حذف سجلات النشاط الأقدم من '+d+' يوم؟');">
+      <label for="days" style="margin:0">أقدم من</label>
+      <input id="days" type="number" name="days" min="1" value="60" style="width:5rem">
+      <span>يوم</span>
+      <button class="btn secondary" type="submit">حذف الأقدم</button>
+    </form>
+    <form method="post" action="/activity/clear" style="display:inline"
+      onsubmit="return confirm('مسح كل سجل النشاط؟ لا يمكن التراجع.');">
+      <button class="btn danger" type="submit">مسح السجل بالكامل</button>
+    </form>
+  </div>
+  {% endif %}
+
   {% if items %}
   <div class="table-wrap">
     <table>

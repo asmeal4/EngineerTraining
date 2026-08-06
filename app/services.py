@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from datetime import datetime, timedelta
 from typing import Any, Optional
 
 from .auth import hash_password
@@ -154,6 +155,23 @@ def list_activity(
         )
         result.append(item)
     return result
+
+
+def clear_activity_log() -> int:
+    with db_session() as conn:
+        cur = conn.execute("DELETE FROM activity_log")
+        return int(cur.rowcount or 0)
+
+
+def clear_activity_older_than(days: int = 60) -> int:
+    days = max(1, int(days))
+    cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+    with db_session() as conn:
+        cur = conn.execute(
+            "DELETE FROM activity_log WHERE created_at < ?",
+            (cutoff,),
+        )
+        return int(cur.rowcount or 0)
 
 
 # ---------------------------------------------------------------------------
