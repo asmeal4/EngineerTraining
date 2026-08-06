@@ -232,6 +232,34 @@ def dashboard_stats() -> dict:
                 f"SELECT COUNT(*) AS c FROM {table} WHERE {IS_DELETED}"
             ).fetchone()["c"]
 
+        top_rows = conn.execute(
+            f"""
+            SELECT p.*,
+                   cb.name AS created_by_name,
+                   ub.name AS updated_by_name,
+                   (
+                     SELECT COUNT(*) FROM activity_log a
+                     WHERE a.entity_type = 'package' AND a.entity_id = p.id
+                       AND a.action IN ('create', 'update', 'restore')
+                   ) AS activity_count
+            FROM packages p
+            LEFT JOIN users cb ON cb.id = p.created_by
+            LEFT JOIN users ub ON ub.id = p.updated_by
+            WHERE (p.deleted_at IS NULL OR p.deleted_at = '')
+            ORDER BY activity_count DESC,
+                     COALESCE(p.updated_at, p.created_at) DESC,
+                     p.id DESC
+            LIMIT 8
+            """
+        ).fetchall()
+        top_packages = []
+        for row in top_rows:
+            item = dict(row)
+            systems, work_types = _package_links(conn, item["id"])
+            item["systems"] = systems
+            item["work_types"] = work_types
+            top_packages.append(item)
+
         return {
             "user_count": count("users"),
             "system_count": count("systems"),
@@ -241,6 +269,7 @@ def dashboard_stats() -> dict:
             "active_users": conn.execute(
                 f"SELECT COUNT(*) AS c FROM users WHERE is_active = 1 AND {NOT_DELETED}"
             ).fetchone()["c"],
+            "top_packages": top_packages,
         }
 
 

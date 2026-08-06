@@ -39,4 +39,61 @@
     <div class="value">{{ stats.trash_count }}</div>
   </a>
 </div>
+
+<section class="panel" style="margin-top:18px">
+  <div class="page-head" style="margin-bottom:12px">
+    <div>
+      <h1 style="font-size:1.15rem;margin:0">الباقات الأكثر استخداماً / تعديلاً</h1>
+      <p style="margin:4px 0 0">مرتبة حسب عدد التعديلات ثم آخر تحديث</p>
+    </div>
+    <a class="btn ghost" href="/packages">عرض الكل</a>
+  </div>
+
+  {% if stats.top_packages %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>الباقة</th>
+          <th>الأنظمة</th>
+          <th>أنواع العمل</th>
+          <th>التعديلات</th>
+          <th>آخر تعديل</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in stats.top_packages %}
+        <tr>
+          <td>
+            <strong>{{ p.name }}</strong>
+            {% if p.notes %}<div style="color:var(--muted);font-size:0.82rem;margin-top:2px">{{ p.notes }}</div>{% endif %}
+          </td>
+          <td>
+            {% for s in p.systems %}
+            <span class="badge brand">{{ s.abbreviation }}</span>
+            {% else %}—{% endfor %}
+          </td>
+          <td>
+            {% for w in p.work_types %}
+            <span class="badge active">{{ w.abbreviation }}</span>
+            {% else %}—{% endfor %}
+          </td>
+          <td><span class="badge brand">{{ p.activity_count or 0 }}</span></td>
+          <td>
+            {{ p.updated_by_name or p.created_by_name or '—' }}
+            <div style="color:var(--muted);font-size:0.8rem">{{ p.updated_at or p.created_at or '—' }}</div>
+          </td>
+          <td>
+            <a class="btn ghost small" href="/packages/{{ p.id }}/edit">تعديل</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">لا توجد باقات بعد — <a href="/packages/new">أضف باقة</a></div>
+  {% endif %}
+</section>
 {% endblock %}

@@ -121,6 +121,14 @@ async def save_work_type_image(upload: Optional[UploadFile]) -> Optional[str]:
     return f"work_types/{name}"
 
 
+@app.get("/favicon.ico")
+def favicon():
+    return FileResponse(
+        BASE_DIR / "static" / "favicon.svg",
+        media_type="image/svg+xml",
+    )
+
+
 # --- Auth ---
 
 @app.get("/login", response_class=HTMLResponse)
