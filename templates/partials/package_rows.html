@@ -1,0 +1,75 @@
+{% macro package_rows(p, show_delete=false, id_prefix='') %}
+{% set pkg_key = id_prefix ~ p.id %}
+<tr class="package-main-row" data-package-row="{{ pkg_key }}">
+  <td><strong class="pkg-name">{{ p.name }}</strong></td>
+  <td class="pkg-cell-badges">
+    {% for s in p.systems %}
+    <span class="badge brand pkg-chip">{{ s.abbreviation }}</span>
+    {% else %}<span class="pkg-empty">—</span>{% endfor %}
+  </td>
+  <td class="pkg-notes">{{ p.notes or '—' }}</td>
+  <td class="pkg-added">
+    <span>{{ p.created_by_name or '—' }}</span>
+    {% if p.created_at %}
+    <span class="pkg-meta">{{ p.created_at }}</span>
+    {% endif %}
+  </td>
+  <td class="pkg-actions">
+    <div class="actions pkg-action-btns">
+      <a class="btn ghost small" href="/packages/{{ p.id }}/edit">تعديل</a>
+      {% if show_delete %}
+      <form method="post" action="/packages/{{ p.id }}/delete" onsubmit="return confirm('نقل إلى سلة المحذوفات؟');">
+        <button class="btn danger-soft small" type="submit">حذف</button>
+      </form>
+      {% endif %}
+    </div>
+  </td>
+</tr>
+<tr class="package-work-types-row">
+  <td colspan="5">
+    <div class="pkg-work-line">
+      <span class="pkg-work-label">نوع العمل</span>
+      {% if p.work_types %}
+      <div class="package-work-badges">
+        {% for w in p.work_types %}
+        <button type="button"
+          class="badge active pkg-work-btn"
+          data-work-type-toggle
+          data-package-id="{{ pkg_key }}"
+          data-work-id="{{ w.id }}"
+          aria-expanded="false">
+          {{ w.name }}{% if w.abbreviation %} · {{ w.abbreviation }}{% endif %}
+        </button>
+        {% endfor %}
+      </div>
+      {% else %}
+      <span class="pkg-empty">لا توجد أنواع عمل</span>
+      {% endif %}
+    </div>
+    {% if p.work_types %}
+    <div class="work-type-detail pkg-work-detail" data-package-detail="{{ pkg_key }}" hidden>
+      {% for w in p.work_types %}
+      <div class="work-type-detail-item" data-work-detail="{{ w.id }}" hidden>
+        <div class="work-type-detail-head">
+          <strong>{{ w.name }}</strong>
+          {% if w.abbreviation %}<span class="badge brand pkg-chip">{{ w.abbreviation }}</span>{% endif %}
+        </div>
+        {% if w.has_explanation and (w.explanation or w.image_path) %}
+          {% if w.explanation %}
+          <div class="work-type-explanation">{{ w.explanation }}</div>
+          {% endif %}
+          {% if w.image_path %}
+          <div class="work-type-image">
+            <img src="/uploads/{{ w.image_path }}" alt="{{ w.name }}">
+          </div>
+          {% endif %}
+        {% else %}
+        <p class="pkg-empty" style="margin:4px 0 0">لا يوجد شرح أو صورة لهذا النوع</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </td>
+</tr>
+{% endmacro %}

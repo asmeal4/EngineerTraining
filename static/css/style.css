@@ -952,104 +952,131 @@ tr:hover td { background: rgba(15, 92, 76, 0.03); }
 .pkg-expand-btn.is-open .pkg-expand-icon {
   transform: rotate(180deg);
 }
-.package-main-row td {
+/* Compact professional package rows (dashboard + packages list) */
+.pkg-compact {
+  border-collapse: collapse;
+}
+.pkg-compact thead th {
+  padding: 8px 8px;
+  font-size: 0.78rem;
+}
+.pkg-compact .package-main-row td {
   border-bottom: none;
   vertical-align: middle;
+  padding: 8px 8px 2px;
+  font-size: 0.9rem;
 }
-.package-work-row td {
-  padding-top: 0;
-  padding-bottom: 14px;
+.pkg-compact .package-work-types-row td {
+  padding: 0 8px 8px;
   border-bottom: 1px solid var(--line);
-  background: rgba(15, 92, 76, 0.03);
+  background: transparent;
+  vertical-align: top;
 }
-.package-work-row[hidden] {
-  display: none !important;
+.pkg-name {
+  font-size: 0.92rem;
+  font-weight: 650;
 }
-.package-work-types {
-  padding: 8px 12px 4px;
-  border-radius: 10px;
+.pkg-cell-badges {
+  line-height: 1.35;
+}
+.pkg-chip {
+  font-size: 0.72rem;
+  padding: 2px 7px;
+  margin: 0 0 2px 2px;
+}
+.pkg-notes {
+  color: var(--muted);
+  font-size: 0.82rem;
+  max-width: 220px;
+  line-height: 1.35;
+}
+.pkg-added {
+  font-size: 0.82rem;
+  line-height: 1.3;
+}
+.pkg-meta {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+  margin-top: 1px;
+}
+.pkg-actions {
+  white-space: nowrap;
+}
+.pkg-action-btns {
+  margin: 0;
+  gap: 6px;
+}
+.pkg-work-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 4px 0 0;
+  border-top: 1px dashed rgba(213, 205, 192, 0.9);
+}
+.pkg-work-label {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  margin-left: 4px;
 }
 .package-work-badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 6px;
+  gap: 4px;
+  margin: 0;
 }
-
-/* Work type click-to-expand detail on packages list */
 .pkg-work-btn {
   border: none;
   cursor: pointer;
   font: inherit;
-  margin: 0 0 4px;
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  margin: 0;
+  line-height: 1.3;
 }
 .pkg-work-btn:hover {
-  filter: brightness(0.95);
-  outline: 2px solid rgba(15, 92, 76, 0.25);
+  filter: brightness(0.97);
+  outline: 1px solid rgba(15, 92, 76, 0.28);
 }
 .pkg-work-btn.is-open {
   outline: 2px solid var(--brand);
-  box-shadow: 0 0 0 2px rgba(15, 92, 76, 0.12);
+  box-shadow: none;
 }
-.package-detail-row td {
-  padding-top: 0;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--line);
-  background: rgba(15, 92, 76, 0.04);
+.pkg-empty {
+  color: var(--muted);
+  font-size: 0.78rem;
 }
-.package-detail-row[hidden] {
-  display: none !important;
-}
-.work-type-detail {
-  padding: 12px 14px;
-  border-radius: 12px;
+.pkg-work-detail {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
   border: 1px solid var(--line);
-  background: var(--surface);
+  background: #fff;
 }
+.pkg-work-detail[hidden],
 .work-type-detail-item[hidden] {
   display: none !important;
 }
 .work-type-detail-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 0.88rem;
 }
 .work-type-explanation {
   white-space: pre-wrap;
-  line-height: 1.6;
+  line-height: 1.5;
   color: var(--ink);
-  margin-bottom: 12px;
+  margin: 0 0 8px;
+  font-size: 0.86rem;
 }
 .work-type-image img {
-  max-width: min(480px, 100%);
-  border-radius: 10px;
+  max-width: min(360px, 100%);
+  border-radius: 8px;
   border: 1px solid var(--line);
   display: block;
-}
-
-/* Dashboard packages: work types on second row */
-.dashboard-packages .package-main-row td {
-  border-bottom: none;
-  padding-bottom: 6px;
-}
-.dashboard-packages .package-work-types-row td {
-  padding-top: 0;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--line);
-  background: rgba(15, 92, 76, 0.03);
-}
-.dashboard-work-types {
-  padding: 8px 10px;
-  border-radius: 10px;
-}
-.dashboard-work-detail {
-  margin-top: 10px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-}
-.dashboard-work-detail[hidden] {
-  display: none !important;
 }
