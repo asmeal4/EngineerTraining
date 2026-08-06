@@ -35,7 +35,7 @@ python - <<'PY'
 from app.main import app, ACTIVITY_BUILD
 paths = {getattr(r, "path", None) for r in app.routes}
 print("BUILD", ACTIVITY_BUILD)
-for p in ("/activity", "/activity/clear", "/health"):
+for p in ("/activity", "/health"):
     print(p, "OK" if p in paths else "MISSING")
 if "/health" not in paths or "/activity" not in paths:
     raise SystemExit(2)

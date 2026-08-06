@@ -631,7 +631,7 @@ def trash_purge(request: Request, entity: str, item_id: int):
 
 # --- Activity ---
 
-ACTIVITY_BUILD = "activity-clear-v3"
+ACTIVITY_BUILD = "activity-clear-v4"
 
 
 @app.get("/activity", response_class=HTMLResponse)
@@ -670,7 +670,6 @@ def activity_list(
             "actions": services.ACTION_LABELS,
             "entities": services.ENTITY_LABELS,
             "confirm_clear": confirm_clear,
-            "activity_build": ACTIVITY_BUILD,
         },
     )
 
@@ -695,37 +694,6 @@ async def activity_actions(request: Request):
         flash(request, f"تم حذف السجلات الأقدم من {days} يوم ({deleted} سجل)")
     else:
         flash(request, "عملية غير معروفة", "error")
-    return RedirectResponse("/activity", status_code=303)
-
-
-@app.api_route("/activity/clear", methods=["GET", "POST"], response_class=HTMLResponse)
-async def activity_clear(request: Request):
-    if (redir := auth.require_admin(request)):
-        return redir
-    if request.method == "GET":
-        return RedirectResponse("/activity?confirm_clear=all", status_code=303)
-    deleted = services.clear_activity_log()
-    flash(request, f"تم مسح سجل النشاط بالكامل ({deleted} سجل)")
-    return RedirectResponse("/activity", status_code=303)
-
-
-@app.api_route("/activity/clear-older", methods=["GET", "POST"], response_class=HTMLResponse)
-async def activity_clear_older(request: Request):
-    if (redir := auth.require_admin(request)):
-        return redir
-    if request.method == "GET":
-        days = request.query_params.get("days") or "60"
-        return RedirectResponse(
-            f"/activity?confirm_clear=older&days={days}", status_code=303
-        )
-    form = await request.form()
-    raw = (form.get("days") or "60").strip()
-    try:
-        days = max(1, int(raw))
-    except (TypeError, ValueError):
-        days = 60
-    deleted = services.clear_activity_older_than(days)
-    flash(request, f"تم حذف السجلات الأقدم من {days} يوم ({deleted} سجل)")
     return RedirectResponse("/activity", status_code=303)
 
 

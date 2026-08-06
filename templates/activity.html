@@ -4,7 +4,7 @@
 <section class="page-head">
   <div>
     <h1>سجل النشاط</h1>
-    <p>تتبع إضافات وتعديلات وحذف المستخدمين</p>
+    <p>تتبع الإضافات والتعديلات والحذف للمهندسين والأنظمة والباقات</p>
   </div>
 </section>
 
@@ -40,7 +40,7 @@
   {% if is_admin %}
   {% if confirm_clear == 'all' %}
   <div class="flash error" style="margin-top:12px">
-    <strong>تأكيد: مسح كل سجل النشاط؟</strong>
+    <strong>تأكيد: مسح كل سجل النشاط؟ لا يمكن التراجع.</strong>
     <div class="actions" style="margin-top:10px">
       <form method="post" action="/activity" style="display:inline">
         <input type="hidden" name="intent" value="clear_all">
@@ -62,26 +62,16 @@
     </form>
   </div>
   {% else %}
-  <div class="toolbar" style="margin-top:8px;gap:10px;flex-wrap:wrap;align-items:center">
-    <form method="post" action="/activity" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"
-      onsubmit="var d=this.days.value||60; return confirm('حذف سجلات النشاط الأقدم من '+d+' يوم؟');">
-      <input type="hidden" name="intent" value="clear_older">
+  <div class="toolbar" style="margin-top:12px;gap:10px;flex-wrap:wrap;align-items:center">
+    <form method="get" action="/activity" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0">
+      <input type="hidden" name="confirm_clear" value="older">
       <label for="days" style="margin:0">أقدم من</label>
       <input id="days" type="number" name="days" min="1" value="60" style="width:5rem">
       <span>يوم</span>
       <button class="btn secondary" type="submit">حذف الأقدم</button>
     </form>
-    <a class="btn secondary" href="/activity?confirm_clear=older&days=60">تأكيد حذف الأقدم</a>
-    <form method="post" action="/activity" style="display:inline"
-      onsubmit="return confirm('مسح كل سجل النشاط؟ لا يمكن التراجع.');">
-      <input type="hidden" name="intent" value="clear_all">
-      <button class="btn danger" type="submit">مسح السجل بالكامل</button>
-    </form>
-    <a class="btn danger" href="/activity?confirm_clear=all">تأكيد المسح الكامل</a>
+    <a class="btn danger" href="/activity?confirm_clear=all">مسح السجل بالكامل</a>
   </div>
-  {% endif %}
-  {% if activity_build %}
-  <p style="margin:8px 0 0;color:var(--muted);font-size:0.75rem">إصدار: {{ activity_build }}</p>
   {% endif %}
   {% endif %}
 
