@@ -4,7 +4,7 @@
 <section class="page-head">
   <div>
     <h1>نوع الباقات</h1>
-    <p>باقات مربوطة بالأنظمة وأنواع العمل — اضغط نوع العمل لعرض الشرح والصورة</p>
+    <p>باقات مربوطة بالأنظمة — أنواع العمل في سطر ثانٍ، اضغط لعرض الشرح والصورة</p>
   </div>
   <a class="btn" href="/packages/new">باقة جديدة</a>
 </section>
@@ -23,7 +23,6 @@
         <tr>
           <th>الاسم</th>
           <th>الأنظمة</th>
-          <th>نوع العمل</th>
           <th>ملاحظة</th>
           <th>أضافه</th>
           <th></th>
@@ -38,24 +37,6 @@
             <span class="badge brand">{{ s.abbreviation }}</span>
             {% else %}—{% endfor %}
           </td>
-          <td>
-            {% if p.work_types %}
-            <div class="package-work-badges">
-              {% for w in p.work_types %}
-              <button type="button"
-                class="badge active pkg-work-btn"
-                data-work-type-toggle
-                data-package-id="{{ p.id }}"
-                data-work-id="{{ w.id }}"
-                aria-expanded="false">
-                {{ w.name }} ({{ w.abbreviation }})
-              </button>
-              {% endfor %}
-            </div>
-            {% else %}
-            —
-            {% endif %}
-          </td>
           <td>{{ p.notes or '—' }}</td>
           <td>{{ p.created_by_name or '—' }}</td>
           <td>
@@ -67,9 +48,28 @@
             </div>
           </td>
         </tr>
-        <tr class="package-detail-row" data-package-detail="{{ p.id }}" hidden>
-          <td colspan="6">
-            <div class="work-type-detail" data-detail-panel="{{ p.id }}">
+        <tr class="package-work-types-row">
+          <td colspan="5">
+            <div class="dashboard-work-types">
+              <span class="linked-branches-label">نوع العمل</span>
+              {% if p.work_types %}
+              <div class="package-work-badges">
+                {% for w in p.work_types %}
+                <button type="button"
+                  class="badge active pkg-work-btn"
+                  data-work-type-toggle
+                  data-package-id="{{ p.id }}"
+                  data-work-id="{{ w.id }}"
+                  aria-expanded="false">
+                  {{ w.name }} ({{ w.abbreviation }})
+                </button>
+                {% endfor %}
+              </div>
+              {% else %}
+              <span class="empty compact" style="padding:0">لا توجد أنواع عمل مرتبطة</span>
+              {% endif %}
+            </div>
+            <div class="work-type-detail" data-package-detail="{{ p.id }}" hidden>
               {% for w in p.work_types %}
               <div class="work-type-detail-item" data-work-detail="{{ w.id }}" hidden>
                 <div class="work-type-detail-head">
