@@ -5,30 +5,54 @@ from pathlib import Path
 from typing import Any, Optional
 
 from .auth import hash_password
-from .config import UPLOADS_DIR, WORK_TYPE_UPLOADS
-
-
-def resolve_work_type_image_path(image_path: Optional[str]) -> Optional[Path]:
-    """Map stored relative path (work_types/xxx.png) to absolute file path."""
-    if not image_path:
-        return None
-    path = Path(image_path)
-    if path.is_absolute():
-        return path
-    return UPLOADS_DIR / image_path
-
-
-def delete_work_type_image_file(image_path: Optional[str]) -> None:
-    """Delete image file from disk immediately (storage cleanup)."""
-    path = resolve_work_type_image_path(image_path)
-    if not path:
-        return
-    try:
-        if path.exists() and path.is_file():
-            path.unlink()
-    except OSError:
-        pass
+from .config import BASE_DIR, DATA_DIR, UPLOADS_DIR, WORK_TYPE_UPLOADS
 from .database import db_session, now_iso, role_label
+
+
+def resolve_work_type_image_candidates(image_path: Optional[str]) -> list[Path]:
+    """Possible absolute paths for a stored work-type image."""
+    if not image_path:
+        return []
+    raw = str(image_path).strip().replace("\\", "/")
+    if not raw:
+        return []
+    path = Path(raw)
+    candidates: list[Path] = []
+    if path.is_absolute():
+        candidates.append(path)
+    else:
+        name = Path(raw).name
+        candidates.extend(
+            [
+                UPLOADS_DIR / raw,
+                WORK_TYPE_UPLOADS / name,
+                DATA_DIR / raw,
+                BASE_DIR / "data" / "uploads" / raw,
+                BASE_DIR / raw,
+            ]
+        )
+    # unique preserve order
+    seen: set[str] = set()
+    result: list[Path] = []
+    for p in candidates:
+        key = str(p.resolve()) if p.exists() else str(p)
+        if key not in seen:
+            seen.add(key)
+            result.append(p)
+    return result
+
+
+def delete_work_type_image_file(image_path: Optional[str]) -> bool:
+    """Delete image file from disk immediately. Returns True if a file was removed."""
+    removed = False
+    for path in resolve_work_type_image_candidates(image_path):
+        try:
+            if path.is_file():
+                path.unlink()
+                removed = True
+        except OSError:
+            continue
+    return removed
 
 ACTION_LABELS = {
     "create": "إضافة",
@@ -793,10 +817,13 @@ def soft_delete_work_type(work_type_id: int, actor_id: int) -> bool:
         ).fetchone()
         if not row:
             return False
+        image_path = row["image_path"]
+        # Clear image_path so restore does not point at a missing file
         conn.execute(
             """
             UPDATE work_types
-            SET deleted_at = ?, deleted_by = ?, updated_at = ?, updated_by = ?
+            SET deleted_at = ?, deleted_by = ?, updated_at = ?, updated_by = ?,
+                image_path = NULL
             WHERE id = ?
             """,
             (now_iso(), actor_id, now_iso(), actor_id, work_type_id),
@@ -809,6 +836,8 @@ def soft_delete_work_type(work_type_id: int, actor_id: int) -> bool:
             entity_id=work_type_id,
             details=f"حذف نوع عمل: {row['name']}",
         )
+    # Free disk immediately (soft delete also removes the file)
+    delete_work_type_image_file(image_path)
     return True
 
 
@@ -860,7 +889,7 @@ def purge_work_type(work_type_id: int, actor_id: int) -> bool:
             entity_id=work_type_id,
             details=f"حذف نهائي لنوع عمل: {row['name']}",
         )
-    # Delete image file from disk immediately to free storage
+    # Delete any remaining file (also covers records soft-deleted before this fix)
     delete_work_type_image_file(image_path)
     return True
 
