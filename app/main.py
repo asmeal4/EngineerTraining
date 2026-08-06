@@ -737,6 +737,7 @@ async def backup_restore(request: Request, backup_file: UploadFile = File(...)):
         return redir
     import tempfile
     import os
+    import logging
 
     original_name = (backup_file.filename or "").lower()
     suffix = ".zip" if original_name.endswith(".zip") else ".db"
@@ -745,17 +746,22 @@ async def backup_restore(request: Request, backup_file: UploadFile = File(...)):
     temp_path = Path(temp_name)
     try:
         content = await backup_file.read()
+        if not content:
+            flash(request, "الملف فارغ أو لم يُرفع بشكل صحيح", "error")
+            return RedirectResponse("/backup", status_code=303)
         temp_path.write_bytes(content)
         backup.restore_database(temp_path)
         flash(request, "تم استرجاع النسخة الاحتياطية بنجاح")
     except ValueError as e:
         msg = {
-            "file_too_large": "الملف كبير جداً",
+            "file_too_large": "الملف كبير جداً (الحد 100 ميجابايت)",
             "invalid_database": "ملف نسخة احتياطية غير صالح",
+            "uploads_restore_failed": "تم استرجاع قاعدة البيانات لكن تعذر استرجاع الصور",
         }.get(str(e), "تعذر الاسترجاع")
         flash(request, msg, "error")
-    except Exception:
-        flash(request, "تعذر استرجاع النسخة الاحتياطية", "error")
+    except Exception as e:
+        logging.getLogger(__name__).exception("backup restore failed")
+        flash(request, f"تعذر استرجاع النسخة الاحتياطية: {type(e).__name__}", "error")
     finally:
         temp_path.unlink(missing_ok=True)
     return RedirectResponse("/backup", status_code=303)
