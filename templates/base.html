@@ -17,12 +17,12 @@
     </div>
     <nav class="nav">
       <a href="/" class="{% if request.url.path == '/' %}active{% endif %}">لوحة التحكم</a>
-      <a href="/users" class="{% if request.url.path.startswith('/users') %}active{% endif %}">المستخدمون</a>
       <a href="/systems" class="{% if request.url.path.startswith('/systems') %}active{% endif %}">الأنظمة</a>
       <a href="/work-types" class="{% if request.url.path.startswith('/work-types') %}active{% endif %}">نوع العمل</a>
       <a href="/packages" class="{% if request.url.path.startswith('/packages') %}active{% endif %}">الباقات</a>
       <a href="/trash" class="{% if request.url.path.startswith('/trash') %}active{% endif %}">سلة المحذوفات</a>
       <a href="/activity" class="{% if request.url.path.startswith('/activity') %}active{% endif %}">سجل النشاط</a>
+      <a href="/users" class="{% if request.url.path.startswith('/users') %}active{% endif %}">المهندسين</a>
       <a href="/backup" class="{% if request.url.path.startswith('/backup') %}active{% endif %}">نسخة احتياطية</a>
       {% if current_user %}
       <span class="user-badge">{{ current_user.name }} — {{ current_user.role_label }}</span>

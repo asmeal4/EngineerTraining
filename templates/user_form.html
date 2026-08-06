@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% from "partials/audit_meta.html" import audit_meta %}
-{% block title %}{% if mode == 'new' %}مستخدم جديد{% else %}تعديل مستخدم{% endif %}{% endblock %}
+{% block title %}{% if mode == 'new' %}مهندس جديد{% else %}تعديل مهندس{% endif %}{% endblock %}
 {% block content %}
 <section class="page-head">
   <div>
-    <h1>{% if mode == 'new' %}مستخدم جديد{% else %}تعديل مستخدم{% endif %}</h1>
+    <h1>{% if mode == 'new' %}مهندس جديد{% else %}تعديل مهندس{% endif %}</h1>
   </div>
   <a class="btn ghost" href="/users">رجوع</a>
 </section>

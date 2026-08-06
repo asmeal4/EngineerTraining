@@ -1,13 +1,13 @@
 {% extends "base.html" %}
-{% block title %}المستخدمون{% endblock %}
+{% block title %}المهندسين{% endblock %}
 {% block content %}
 <section class="page-head">
   <div>
-    <h1>المستخدمون</h1>
+    <h1>المهندسين</h1>
     <p>إدارة حسابات المهندسين والمدراء</p>
   </div>
   {% if is_admin %}
-  <a class="btn" href="/users/new">مستخدم جديد</a>
+  <a class="btn" href="/users/new">مهندس جديد</a>
   {% endif %}
 </section>
 
