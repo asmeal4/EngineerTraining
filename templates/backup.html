@@ -4,25 +4,25 @@
 <section class="page-head">
   <div>
     <h1>نسخة احتياطية</h1>
-    <p>تنزيل قاعدة البيانات أو استرجاع نسخة سابقة</p>
+    <p>تنزيل قاعدة البيانات والصور أو استرجاع نسخة سابقة</p>
   </div>
 </section>
 
 <div class="panel" style="margin-bottom:18px">
   <h2 style="margin-top:0;font-size:1.1rem">تنزيل نسخة احتياطية</h2>
-  <p style="color:var(--muted)">سيتم تنزيل ملف SQLite — اختر مكان الحفظ من نافذة المتصفح.</p>
+  <p style="color:var(--muted)">سيتم تنزيل ملف ZIP يحتوي قاعدة البيانات وصور أنواع العمل.</p>
   <a class="btn" href="/backup/download">تنزيل النسخة الاحتياطية</a>
 </div>
 
 {% if is_admin %}
 <div class="panel">
   <h2 style="margin-top:0;font-size:1.1rem">استرجاع نسخة احتياطية</h2>
-  <p style="color:var(--muted)">خاص بالمدير فقط. سيتم أخذ نسخة تلقائية قبل الاسترجاع.</p>
+  <p style="color:var(--muted)">خاص بالمدير فقط. سيتم أخذ نسخة تلقائية قبل الاسترجاع. يدعم ملفات ZIP الجديدة وملفات .db القديمة.</p>
   <form method="post" action="/backup/restore" enctype="multipart/form-data"
     onsubmit="return confirm('استرجاع النسخة سيستبدل البيانات الحالية. هل أنت متأكد؟');">
     <div class="field" style="margin-bottom:14px">
-      <label for="backup_file">ملف النسخة (.db)</label>
-      <input id="backup_file" type="file" name="backup_file" accept=".db" required>
+      <label for="backup_file">ملف النسخة (.zip أو .db)</label>
+      <input id="backup_file" type="file" name="backup_file" accept=".zip,.db" required>
     </div>
     <button class="btn danger" type="submit">استرجاع النسخة</button>
   </form>

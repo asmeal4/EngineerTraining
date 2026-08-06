@@ -727,7 +727,7 @@ def backup_download(request: Request, background_tasks: BackgroundTasks):
     return FileResponse(
         path,
         filename=filename,
-        media_type="application/octet-stream",
+        media_type="application/zip",
     )
 
 
@@ -738,7 +738,9 @@ async def backup_restore(request: Request, backup_file: UploadFile = File(...)):
     import tempfile
     import os
 
-    fd, temp_name = tempfile.mkstemp(suffix=".db")
+    original_name = (backup_file.filename or "").lower()
+    suffix = ".zip" if original_name.endswith(".zip") else ".db"
+    fd, temp_name = tempfile.mkstemp(suffix=suffix)
     os.close(fd)
     temp_path = Path(temp_name)
     try:
@@ -749,7 +751,7 @@ async def backup_restore(request: Request, backup_file: UploadFile = File(...)):
     except ValueError as e:
         msg = {
             "file_too_large": "الملف كبير جداً",
-            "invalid_database": "ملف قاعدة بيانات غير صالح",
+            "invalid_database": "ملف نسخة احتياطية غير صالح",
         }.get(str(e), "تعذر الاسترجاع")
         flash(request, msg, "error")
     except Exception:
