@@ -70,9 +70,10 @@
       <img src="/uploads/{{ work_type.image_path }}" alt="صورة الشرح" style="max-width:100%;border-radius:10px;border:1px solid var(--line)">
     </div>
     <label class="checkbox-row" style="margin:0 0 12px">
-      <input type="checkbox" id="clear-image-check">
-      <span>حذف الصورة الحالية</span>
+      <input type="checkbox" id="clear-image-check" name="clear_image_ui">
+      <span>حذف الصورة من التخزين</span>
     </label>
+    <p class="field-hint" style="margin:0 0 10px">عند التحديد والحفظ تُحذف الصورة من المجلد نهائياً</p>
     {% endif %}
     <input type="file" id="image-editor" accept="image/*">
     <p class="field-hint" style="margin-top:8px">JPG / PNG / GIF / WEBP — حتى 8 ميجا</p>

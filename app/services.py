@@ -773,11 +773,11 @@ def update_work_type(
         if not existing:
             raise ValueError("not_found")
         old_image = existing["image_path"]
-        new_image = old_image
+        # Only change image when form explicitly sent image_path (clear or replace)
         if "image_path" in data:
-            new_image = data["image_path"] if has_explanation else None
-        elif not has_explanation:
-            new_image = None
+            new_image = data["image_path"]
+        else:
+            new_image = old_image
         fields = """
             name = ?, abbreviation = ?, has_explanation = ?,
             explanation = ?, image_path = ?, updated_at = ?, updated_by = ?
@@ -804,7 +804,7 @@ def update_work_type(
             entity_id=work_type_id,
             details=f"تعديل نوع عمل: {name}",
         )
-    # Remove old file when cleared, replaced, or explanation disabled
+    # Delete file only when image was cleared or replaced from the image UI
     if old_image and old_image != new_image:
         delete_work_type_image_file(old_image)
 
@@ -817,13 +817,11 @@ def soft_delete_work_type(work_type_id: int, actor_id: int) -> bool:
         ).fetchone()
         if not row:
             return False
-        image_path = row["image_path"]
-        # Clear image_path so restore does not point at a missing file
+        # Soft delete keeps image on disk so restore can bring it back
         conn.execute(
             """
             UPDATE work_types
-            SET deleted_at = ?, deleted_by = ?, updated_at = ?, updated_by = ?,
-                image_path = NULL
+            SET deleted_at = ?, deleted_by = ?, updated_at = ?, updated_by = ?
             WHERE id = ?
             """,
             (now_iso(), actor_id, now_iso(), actor_id, work_type_id),
@@ -836,8 +834,6 @@ def soft_delete_work_type(work_type_id: int, actor_id: int) -> bool:
             entity_id=work_type_id,
             details=f"حذف نوع عمل: {row['name']}",
         )
-    # Free disk immediately (soft delete also removes the file)
-    delete_work_type_image_file(image_path)
     return True
 
 
