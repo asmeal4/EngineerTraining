@@ -5,7 +5,29 @@ from pathlib import Path
 from typing import Any, Optional
 
 from .auth import hash_password
-from .config import WORK_TYPE_UPLOADS
+from .config import UPLOADS_DIR, WORK_TYPE_UPLOADS
+
+
+def resolve_work_type_image_path(image_path: Optional[str]) -> Optional[Path]:
+    """Map stored relative path (work_types/xxx.png) to absolute file path."""
+    if not image_path:
+        return None
+    path = Path(image_path)
+    if path.is_absolute():
+        return path
+    return UPLOADS_DIR / image_path
+
+
+def delete_work_type_image_file(image_path: Optional[str]) -> None:
+    """Delete image file from disk immediately (storage cleanup)."""
+    path = resolve_work_type_image_path(image_path)
+    if not path:
+        return
+    try:
+        if path.exists() and path.is_file():
+            path.unlink()
+    except OSError:
+        pass
 from .database import db_session, now_iso, role_label
 
 ACTION_LABELS = {
@@ -726,31 +748,26 @@ def update_work_type(
         ).fetchone()
         if not existing:
             raise ValueError("not_found")
-        image_path = data.get("image_path")
-        if image_path is None:
-            image_path = existing["image_path"]
-        if not has_explanation:
-            explanation = None
-            # keep image unless explicitly cleared — plan says one image when enabled
+        old_image = existing["image_path"]
+        new_image = old_image
+        if "image_path" in data:
+            new_image = data["image_path"] if has_explanation else None
+        elif not has_explanation:
+            new_image = None
         fields = """
             name = ?, abbreviation = ?, has_explanation = ?,
-            explanation = ?, updated_at = ?, updated_by = ?
+            explanation = ?, image_path = ?, updated_at = ?, updated_by = ?
         """
         values: list[Any] = [
             name,
             abbr,
             has_explanation,
             explanation if has_explanation else None,
+            new_image,
             now_iso(),
             actor_id,
+            work_type_id,
         ]
-        if "image_path" in data:
-            fields += ", image_path = ?"
-            values.append(data["image_path"] if has_explanation else None)
-        elif not has_explanation:
-            fields += ", image_path = ?"
-            values.append(None)
-        values.append(work_type_id)
         conn.execute(
             f"UPDATE work_types SET {fields} WHERE id = ?",
             values,
@@ -763,6 +780,9 @@ def update_work_type(
             entity_id=work_type_id,
             details=f"تعديل نوع عمل: {name}",
         )
+    # Remove old file when cleared, replaced, or explanation disabled
+    if old_image and old_image != new_image:
+        delete_work_type_image_file(old_image)
 
 
 def soft_delete_work_type(work_type_id: int, actor_id: int) -> bool:
@@ -840,15 +860,8 @@ def purge_work_type(work_type_id: int, actor_id: int) -> bool:
             entity_id=work_type_id,
             details=f"حذف نهائي لنوع عمل: {row['name']}",
         )
-    if image_path:
-        path = Path(image_path)
-        if not path.is_absolute():
-            path = WORK_TYPE_UPLOADS.parent.parent / image_path
-        try:
-            if path.exists():
-                path.unlink()
-        except OSError:
-            pass
+    # Delete image file from disk immediately to free storage
+    delete_work_type_image_file(image_path)
     return True
 
 
