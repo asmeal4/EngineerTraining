@@ -631,6 +631,9 @@ def trash_purge(request: Request, entity: str, item_id: int):
 
 # --- Activity ---
 
+ACTIVITY_BUILD = "activity-clear-v3"
+
+
 @app.get("/activity", response_class=HTMLResponse)
 def activity_list(
     request: Request,
@@ -640,6 +643,7 @@ def activity_list(
     entity_type: str = "",
     date_from: str = "",
     date_to: str = "",
+    confirm_clear: str = "",
 ):
     if (redir := auth.require_login(request)):
         return redir
@@ -665,37 +669,54 @@ def activity_list(
             "users": services.list_users(),
             "actions": services.ACTION_LABELS,
             "entities": services.ENTITY_LABELS,
+            "confirm_clear": confirm_clear,
+            "activity_build": ACTIVITY_BUILD,
         },
     )
 
 
-@app.get("/activity/clear", response_class=HTMLResponse)
-@app.post("/activity/clear")
+@app.post("/activity")
+async def activity_actions(request: Request):
+    """Clear actions post to /activity so they work after reload on same path."""
+    if (redir := auth.require_admin(request)):
+        return redir
+    form = await request.form()
+    intent = (form.get("intent") or "").strip()
+    if intent == "clear_all":
+        deleted = services.clear_activity_log()
+        flash(request, f"تم مسح سجل النشاط بالكامل ({deleted} سجل)")
+    elif intent == "clear_older":
+        raw = (form.get("days") or "60").strip()
+        try:
+            days = max(1, int(raw))
+        except (TypeError, ValueError):
+            days = 60
+        deleted = services.clear_activity_older_than(days)
+        flash(request, f"تم حذف السجلات الأقدم من {days} يوم ({deleted} سجل)")
+    else:
+        flash(request, "عملية غير معروفة", "error")
+    return RedirectResponse("/activity", status_code=303)
+
+
+@app.api_route("/activity/clear", methods=["GET", "POST"], response_class=HTMLResponse)
 async def activity_clear(request: Request):
     if (redir := auth.require_admin(request)):
         return redir
     if request.method == "GET":
-        return render(
-            request,
-            "activity_clear_confirm.html",
-            {"mode": "all", "days": 60},
-        )
+        return RedirectResponse("/activity?confirm_clear=all", status_code=303)
     deleted = services.clear_activity_log()
     flash(request, f"تم مسح سجل النشاط بالكامل ({deleted} سجل)")
     return RedirectResponse("/activity", status_code=303)
 
 
-@app.get("/activity/clear-older", response_class=HTMLResponse)
-@app.post("/activity/clear-older")
+@app.api_route("/activity/clear-older", methods=["GET", "POST"], response_class=HTMLResponse)
 async def activity_clear_older(request: Request):
     if (redir := auth.require_admin(request)):
         return redir
     if request.method == "GET":
         days = request.query_params.get("days") or "60"
-        return render(
-            request,
-            "activity_clear_confirm.html",
-            {"mode": "older", "days": days},
+        return RedirectResponse(
+            f"/activity?confirm_clear=older&days={days}", status_code=303
         )
     form = await request.form()
     raw = (form.get("days") or "60").strip()
@@ -715,6 +736,7 @@ def health():
             "ok": True,
             "app": "EngineerTraining",
             "activity_clear": True,
+            "build": ACTIVITY_BUILD,
         }
     )
 

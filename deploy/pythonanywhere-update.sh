@@ -1,42 +1,57 @@
 #!/bin/bash
-# Force-update EngineerTraining on PythonAnywhere and restart the site.
+# Force reinstall website command for EngineerTraining on PythonAnywhere.
 set -euo pipefail
 
-USERNAME="${USER:?}"
-PROJECT_DIR="${PROJECT_DIR:-$HOME/EngineerTraining}"
-VENV_NAME="${VENV_NAME:-EngineerTraining}"
-PA_DOMAIN="${PA_DOMAIN:-${USERNAME}.pythonanywhere.com}"
-START_CMD="$PROJECT_DIR/deploy/pythonanywhere-start.sh"
+echo "USER=$USER"
+PROJECT_DIR="$HOME/EngineerTraining"
+VENV="$HOME/.virtualenvs/EngineerTraining"
+DOMAIN="${PA_DOMAIN:-$USER.pythonanywhere.com}"
+START="$PROJECT_DIR/deploy/pythonanywhere-start.sh"
+
+if [[ ! -d "$PROJECT_DIR/.git" ]]; then
+  echo "ERROR: $PROJECT_DIR not found. Clone first."
+  exit 1
+fi
 
 cd "$PROJECT_DIR"
+echo "=== git reset ==="
+git remote -v
 git fetch origin
 git reset --hard origin/master
-find "$PROJECT_DIR" -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
+git log -1 --oneline
+
+echo "=== clean pyc ==="
+find "$PROJECT_DIR" -type d -name '__pycache__' -print0 2>/dev/null | xargs -0 rm -rf
 find "$PROJECT_DIR" -type f -name '*.pyc' -delete 2>/dev/null || true
-chmod +x "$START_CMD"
 
+echo "=== venv ==="
 # shellcheck disable=SC1091
-source "$HOME/.virtualenvs/$VENV_NAME/bin/activate"
+source "$VENV/bin/activate"
 pip install -r requirements.txt -q
+pip install -U pythonanywhere -q
 
+echo "=== verify routes in this code ==="
 python - <<'PY'
-from app.main import app
-paths = sorted({getattr(r, "path", "") for r in app.routes})
-need = ["/activity/clear", "/activity/clear-older", "/health"]
-missing = [p for p in need if p not in paths]
-print("routes_ok", not missing)
-if missing:
-    print("missing", missing)
-    raise SystemExit(1)
-for p in need:
-    print(" ", p)
+from app.main import app, ACTIVITY_BUILD
+paths = {getattr(r, "path", None) for r in app.routes}
+print("BUILD", ACTIVITY_BUILD)
+for p in ("/activity", "/activity/clear", "/health"):
+    print(p, "OK" if p in paths else "MISSING")
+if "/health" not in paths or "/activity" not in paths:
+    raise SystemExit(2)
 PY
 
-if pa website get --domain "$PA_DOMAIN" >/dev/null 2>&1; then
-  pa website delete --domain "$PA_DOMAIN" || true
-fi
-pa website create --domain "$PA_DOMAIN" --command "$START_CMD"
+chmod +x "$START"
+echo "=== start command ==="
+echo "$START"
+head -n 5 "$START"
+
+echo "=== recreate website $DOMAIN ==="
+pa website delete --domain "$DOMAIN" 2>/dev/null || true
+pa website create --domain "$DOMAIN" --command "$START"
+pa website get --domain "$DOMAIN" || true
 
 echo
-echo "Updated. Open https://$PA_DOMAIN/health"
-echo "Then try https://$PA_DOMAIN/activity"
+echo "DONE. Wait 5 seconds then open:"
+echo "  https://$DOMAIN/health"
+echo "Expect: build activity-clear-v3"
