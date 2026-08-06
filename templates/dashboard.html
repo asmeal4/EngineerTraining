@@ -43,20 +43,19 @@
 <section class="panel" style="margin-top:18px">
   <div class="page-head" style="margin-bottom:12px">
     <div>
-      <h1 style="font-size:1.15rem;margin:0">الباقات الأكثر استخداماً / تعديلاً</h1>
-      <p style="margin:4px 0 0">مرتبة حسب عدد التعديلات ثم آخر تحديث</p>
+      <h1 style="font-size:1.15rem;margin:0">كل الباقات</h1>
+      <p style="margin:4px 0 0">مرتبة حسب الاستخدام والتعديل — أنواع العمل في سطر منفصل</p>
     </div>
-    <a class="btn ghost" href="/packages">عرض الكل</a>
+    <a class="btn ghost" href="/packages">إدارة الباقات</a>
   </div>
 
   {% if stats.top_packages %}
   <div class="table-wrap">
-    <table>
+    <table class="packages-table dashboard-packages">
       <thead>
         <tr>
           <th>الباقة</th>
           <th>الأنظمة</th>
-          <th>أنواع العمل</th>
           <th>التعديلات</th>
           <th>آخر تعديل</th>
           <th></th>
@@ -64,7 +63,7 @@
       </thead>
       <tbody>
         {% for p in stats.top_packages %}
-        <tr>
+        <tr class="package-main-row">
           <td>
             <strong>{{ p.name }}</strong>
             {% if p.notes %}<div style="color:var(--muted);font-size:0.82rem;margin-top:2px">{{ p.notes }}</div>{% endif %}
@@ -74,11 +73,6 @@
             <span class="badge brand">{{ s.abbreviation }}</span>
             {% else %}—{% endfor %}
           </td>
-          <td>
-            {% for w in p.work_types %}
-            <span class="badge active">{{ w.abbreviation }}</span>
-            {% else %}—{% endfor %}
-          </td>
           <td><span class="badge brand">{{ p.activity_count or 0 }}</span></td>
           <td>
             {{ p.updated_by_name or p.created_by_name or '—' }}
@@ -86,6 +80,53 @@
           </td>
           <td>
             <a class="btn ghost small" href="/packages/{{ p.id }}/edit">تعديل</a>
+          </td>
+        </tr>
+        <tr class="package-work-types-row">
+          <td colspan="5">
+            <div class="dashboard-work-types">
+              <span class="linked-branches-label">نوع العمل</span>
+              {% if p.work_types %}
+              <div class="package-work-badges">
+                {% for w in p.work_types %}
+                <button type="button"
+                  class="badge active pkg-work-btn"
+                  data-work-type-toggle
+                  data-package-id="dash-{{ p.id }}"
+                  data-work-id="{{ w.id }}"
+                  aria-expanded="false">
+                  {{ w.name }} ({{ w.abbreviation }})
+                </button>
+                {% endfor %}
+              </div>
+              {% else %}
+              <span class="empty compact" style="padding:0">لا توجد أنواع عمل مرتبطة</span>
+              {% endif %}
+            </div>
+            {% if p.work_types %}
+            <div class="work-type-detail dashboard-work-detail" data-package-detail="dash-{{ p.id }}" hidden>
+              {% for w in p.work_types %}
+              <div class="work-type-detail-item" data-work-detail="{{ w.id }}" hidden>
+                <div class="work-type-detail-head">
+                  <strong>{{ w.name }}</strong>
+                  <span class="badge brand">{{ w.abbreviation }}</span>
+                </div>
+                {% if w.has_explanation and (w.explanation or w.image_path) %}
+                  {% if w.explanation %}
+                  <div class="work-type-explanation">{{ w.explanation }}</div>
+                  {% endif %}
+                  {% if w.image_path %}
+                  <div class="work-type-image">
+                    <img src="/uploads/{{ w.image_path }}" alt="{{ w.name }}">
+                  </div>
+                  {% endif %}
+                {% else %}
+                <p class="empty compact" style="padding:8px 0;margin:0">لا يوجد شرح أو صورة لهذا النوع</p>
+                {% endif %}
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}

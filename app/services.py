@@ -249,7 +249,6 @@ def dashboard_stats() -> dict:
             ORDER BY activity_count DESC,
                      COALESCE(p.updated_at, p.created_at) DESC,
                      p.id DESC
-            LIMIT 8
             """
         ).fetchall()
         top_packages = []

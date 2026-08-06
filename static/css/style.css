@@ -1027,3 +1027,29 @@ tr:hover td { background: rgba(15, 92, 76, 0.03); }
   border: 1px solid var(--line);
   display: block;
 }
+
+/* Dashboard packages: work types on second row */
+.dashboard-packages .package-main-row td {
+  border-bottom: none;
+  padding-bottom: 6px;
+}
+.dashboard-packages .package-work-types-row td {
+  padding-top: 0;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(15, 92, 76, 0.03);
+}
+.dashboard-work-types {
+  padding: 8px 10px;
+  border-radius: 10px;
+}
+.dashboard-work-detail {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.dashboard-work-detail[hidden] {
+  display: none !important;
+}
