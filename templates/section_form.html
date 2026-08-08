@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% from "partials/audit_meta.html" import audit_meta %}
+{% block title %}{% if mode == 'new' %}قسم جديد{% else %}تعديل قسم{% endif %} — {{ page_meta.title }}{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>{% if mode == 'new' %}قسم جديد{% else %}تعديل قسم{% endif %}</h1>
+    <p>{{ page_meta.title }}</p>
+  </div>
+  <a class="btn ghost" href="{{ page_meta.base_path }}">رجوع</a>
+</section>
+
+<div class="panel">
+  <form method="post" enctype="multipart/form-data"
+    action="{% if mode == 'new' %}{{ page_meta.base_path }}/sections/new{% else %}{{ page_meta.base_path }}/sections/{{ section.id }}/edit{% endif %}">
+    <div class="form-grid">
+      <div class="field">
+        <label for="title">عنوان القسم</label>
+        <input id="title" name="title" required value="{{ section.title if section else '' }}" placeholder="مثال: خطوات التركيب الأساسية">
+      </div>
+      <div class="field">
+        <label for="sort_order">الترتيب</label>
+        <input id="sort_order" name="sort_order" type="number" value="{{ section.sort_order if section else 0 }}">
+      </div>
+      <div class="field full">
+        <label for="explanation">الشرح</label>
+        <textarea id="explanation" name="explanation" rows="8" placeholder="اكتب الشرح هنا...">{{ section.explanation if section and section.explanation else '' }}</textarea>
+      </div>
+      <div class="field full">
+        <label for="image">الصورة</label>
+        {% if section and section.image_path %}
+        <div class="section-form-preview">
+          <img src="/uploads/{{ section.image_path }}" alt="الصورة الحالية">
+        </div>
+        <label class="checkbox-row" style="margin:0 0 12px">
+          <input type="checkbox" name="clear_image" value="1">
+          <span>حذف الصورة الحالية عند الحفظ</span>
+        </label>
+        {% endif %}
+        <input id="image" type="file" name="image" accept="image/*">
+        <p class="field-hint">JPG / PNG / GIF / WEBP — حتى 8 ميجا</p>
+      </div>
+    </div>
+
+    {% if section %}{{ audit_meta(section) }}{% endif %}
+    <div class="actions">
+      <button class="btn" type="submit">حفظ</button>
+      <a class="btn secondary" href="{{ page_meta.base_path }}">إلغاء</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

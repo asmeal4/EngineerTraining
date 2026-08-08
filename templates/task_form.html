@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% from "partials/audit_meta.html" import audit_meta %}
+{% block title %}{% if mode == 'new' %}مهمة جديدة{% else %}تعديل مهمة{% endif %}{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>{% if mode == 'new' %}مهمة جديدة{% else %}تعديل مهمة{% endif %}</h1>
+    <p>العنوان والترتيب والمهندس مع الشرح والصورة</p>
+  </div>
+  <a class="btn ghost" href="/tasks">رجوع</a>
+</section>
+
+<div class="panel">
+  <form method="post" enctype="multipart/form-data"
+    action="{% if mode == 'new' %}/tasks/new{% else %}/tasks/{{ task.id }}/edit{% endif %}">
+    <div class="form-grid">
+      <div class="field">
+        <label for="title">عنوان المهمة</label>
+        <input id="title" name="title" required value="{{ task.title if task else '' }}" placeholder="مثال: مراجعة تركيب النظام">
+      </div>
+      <div class="field">
+        <label for="sort_order">الترتيب</label>
+        <input id="sort_order" name="sort_order" type="number" value="{{ task.sort_order if task else 0 }}">
+      </div>
+      <div class="field">
+        <label for="assigned_user_id">المهندس</label>
+        <select id="assigned_user_id" name="assigned_user_id">
+          <option value="">— بدون تعيين —</option>
+          {% for eng in engineers %}
+          <option value="{{ eng.id }}"
+            {% if task and task.assigned_user_id and task.assigned_user_id == eng.id %}selected{% endif %}>
+            {{ eng.name }}{% if not eng.is_active %} (موقوف){% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field full">
+        <label for="explanation">الشرح</label>
+        <textarea id="explanation" name="explanation" rows="8" placeholder="اكتب تفاصيل المهمة هنا...">{{ task.explanation if task and task.explanation else '' }}</textarea>
+      </div>
+      <div class="field full">
+        <label for="image">الصورة</label>
+        {% if task and task.image_path %}
+        <div class="section-form-preview">
+          <img src="/uploads/{{ task.image_path }}" alt="الصورة الحالية">
+        </div>
+        <label class="checkbox-row" style="margin:0 0 12px">
+          <input type="checkbox" name="clear_image" value="1">
+          <span>حذف الصورة الحالية عند الحفظ</span>
+        </label>
+        {% endif %}
+        <input id="image" type="file" name="image" accept="image/*">
+        <p class="field-hint">JPG / PNG / GIF / WEBP — حتى 8 ميجا</p>
+      </div>
+    </div>
+
+    {% if task %}{{ audit_meta(task) }}{% endif %}
+    <div class="actions">
+      <button class="btn" type="submit">حفظ</button>
+      <a class="btn secondary" href="/tasks">إلغاء</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -5,41 +5,91 @@
 <section class="page-head">
   <div>
     <h1>لوحة التحكم</h1>
-    <p>نظرة سريعة على أنظمة التدريب والتركيب</p>
+    <p>نظرة سريعة على المهام والتدريب والتركيب</p>
   </div>
   <div class="actions">
-    <a class="btn" href="/packages/new">باقة جديدة</a>
-    <a class="btn secondary" href="/work-types/new">نوع عمل</a>
-    <a class="btn secondary" href="/systems/new">نظام جديد</a>
+    <a class="btn" href="/tasks/new">مهمة جديدة</a>
+    <a class="btn secondary" href="/packages/new">باقة جديدة</a>
   </div>
 </section>
 
 <div class="stats">
-  <a class="stat brand" href="/users" style="text-decoration:none;color:inherit">
-    <div class="label">المهندسين</div>
-    <div class="value">{{ stats.user_count }}</div>
+  <a class="stat brand" href="/tasks" style="text-decoration:none;color:inherit">
+    <div class="label">{% if stats.tasks_for_self %}مهامي{% else %}مهام{% endif %}</div>
+    <div class="value">{{ stats.task_count }}</div>
   </a>
-  <a class="stat" href="/systems" style="text-decoration:none;color:inherit">
-    <div class="label">الأنظمة</div>
-    <div class="value">{{ stats.system_count }}</div>
+  <a class="stat" href="/training" style="text-decoration:none;color:inherit">
+    <div class="label">تدريب</div>
+    <div class="value">{{ stats.training_count }}</div>
   </a>
-  <a class="stat" href="/work-types" style="text-decoration:none;color:inherit">
-    <div class="label">أنواع العمل</div>
+  <a class="stat" href="/problems" style="text-decoration:none;color:inherit">
+    <div class="label">أكثر المشكلات</div>
+    <div class="value">{{ stats.problems_count }}</div>
+  </a>
+  <a class="stat ok" href="/work-types" style="text-decoration:none;color:inherit">
+    <div class="label">نوع العمل</div>
     <div class="value">{{ stats.work_type_count }}</div>
-  </a>
-  <a class="stat ok" href="/packages" style="text-decoration:none;color:inherit">
-    <div class="label">الباقات</div>
-    <div class="value">{{ stats.package_count }}</div>
-  </a>
-  <a class="stat warn" href="/users" style="text-decoration:none;color:inherit">
-    <div class="label">نشطون</div>
-    <div class="value">{{ stats.active_users }}</div>
   </a>
   <a class="stat danger" href="/trash" style="text-decoration:none;color:inherit">
     <div class="label">سلة المحذوفات</div>
     <div class="value">{{ stats.trash_count }}</div>
   </a>
 </div>
+
+<section class="panel" style="margin-top:18px">
+  <div class="page-head" style="margin-bottom:10px">
+    <div>
+      <h1 style="font-size:1.15rem;margin:0">{% if stats.tasks_for_self %}مهامي{% else %}المهام{% endif %}</h1>
+      <p style="margin:2px 0 0">
+        {% if stats.tasks_for_self %}
+        المهام المسندة إليك
+        {% else %}
+        جميع المهام مع المهندس المعيَّن
+        {% endif %}
+      </p>
+    </div>
+    <a class="btn ghost" href="/tasks">عرض الكل</a>
+  </div>
+
+  {% if stats.dashboard_tasks %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>الترتيب</th>
+          <th>العنوان</th>
+          {% if not stats.tasks_for_self %}
+          <th>المهندس</th>
+          {% endif %}
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for task in stats.dashboard_tasks %}
+        <tr>
+          <td>{{ task.sort_order }}</td>
+          <td><strong>{{ task.title }}</strong></td>
+          {% if not stats.tasks_for_self %}
+          <td>{{ task.assigned_user_name or '—' }}</td>
+          {% endif %}
+          <td>
+            <a class="btn ghost small" href="/tasks/{{ task.id }}/edit">تعديل</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">
+    {% if stats.tasks_for_self %}
+    لا توجد مهام مسندة إليك حالياً
+    {% else %}
+    لا توجد مهام بعد — <a href="/tasks/new">أضف مهمة</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</section>
 
 <section class="panel" style="margin-top:18px">
   <div class="page-head" style="margin-bottom:10px">

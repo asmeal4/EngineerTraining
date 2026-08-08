@@ -17,6 +17,10 @@ UPLOADS_DIR = DATA_DIR / "uploads"
 UPLOADS_DIR.mkdir(exist_ok=True)
 WORK_TYPE_UPLOADS = UPLOADS_DIR / "work_types"
 WORK_TYPE_UPLOADS.mkdir(parents=True, exist_ok=True)
+SECTION_UPLOADS = UPLOADS_DIR / "sections"
+SECTION_UPLOADS.mkdir(parents=True, exist_ok=True)
+TASK_UPLOADS = UPLOADS_DIR / "tasks"
+TASK_UPLOADS.mkdir(parents=True, exist_ok=True)
 
 DATABASE_PATH = DATA_DIR / "app.db"
 SECRET_KEY = os.environ.get(

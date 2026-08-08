@@ -5,6 +5,7 @@
 <section class="page-head">
   <div>
     <h1>{% if mode == 'new' %}نوع عمل جديد{% else %}تعديل نوع عمل{% endif %}</h1>
+    <p>الاسم والاختصار مع الشرح والصورة</p>
   </div>
   <a class="btn ghost" href="/work-types">رجوع</a>
 </section>
@@ -15,30 +16,35 @@
     <div class="form-grid">
       <div class="field">
         <label for="name">الاسم</label>
-        <input id="name" name="name" required value="{{ work_type.name if work_type else '' }}">
+        <input id="name" name="name" required value="{{ work_type.name if work_type else '' }}" placeholder="مثال: تركيب جديد">
       </div>
       <div class="field">
         <label for="abbreviation">الاختصار</label>
-        <input id="abbreviation" name="abbreviation" required value="{{ work_type.abbreviation if work_type else '' }}">
+        <input id="abbreviation" name="abbreviation" required value="{{ work_type.abbreviation if work_type else '' }}" placeholder="مثال: ت">
       </div>
-      <div class="field checkbox-row full" style="margin-top:8px">
-        <input type="checkbox" id="has_explanation" name="has_explanation" value="1"
-          data-toggle-explanation
-          {% if work_type and work_type.has_explanation %}checked{% endif %}>
-        <label for="has_explanation" style="margin:0">إضافة شرح</label>
+      <div class="field">
+        <label for="sort_order">الترتيب</label>
+        <input id="sort_order" name="sort_order" type="number" value="{{ work_type.sort_order if work_type else 0 }}">
       </div>
-      <div class="full" id="explanation-tools" {% if not work_type or not work_type.has_explanation %}hidden{% endif %}>
-        <div class="actions" style="margin-top:0">
-          <button type="button" class="btn secondary" data-open-float="explanation-float">نافذة الشرح</button>
-          <button type="button" class="btn secondary" data-open-float="image-float">نافذة الصورة</button>
+      <div class="field full">
+        <label for="explanation">الشرح</label>
+        <textarea id="explanation" name="explanation" rows="8" placeholder="اكتب الشرح التعليمي هنا...">{{ work_type.explanation if work_type and work_type.explanation else '' }}</textarea>
+      </div>
+      <div class="field full">
+        <label for="image">الصورة</label>
+        {% if work_type and work_type.image_path %}
+        <div class="section-form-preview">
+          <img src="/uploads/{{ work_type.image_path }}" alt="الصورة الحالية">
         </div>
+        <label class="checkbox-row" style="margin:0 0 12px">
+          <input type="checkbox" name="clear_image" value="1">
+          <span>حذف الصورة الحالية عند الحفظ</span>
+        </label>
+        {% endif %}
+        <input id="image" type="file" name="image" accept="image/*">
+        <p class="field-hint">JPG / PNG / GIF / WEBP — حتى 8 ميجا</p>
       </div>
     </div>
-
-    {# Hidden fields synced from floating panels #}
-    <textarea name="explanation" id="explanation-field" hidden>{{ work_type.explanation if work_type and work_type.explanation else '' }}</textarea>
-    <input type="file" name="image" id="image-field" accept="image/*" hidden>
-    <input type="hidden" name="clear_image" id="clear-image-field" value="0">
 
     {% if work_type %}{{ audit_meta(work_type) }}{% endif %}
     <div class="actions">
@@ -46,37 +52,5 @@
       <a class="btn secondary" href="/work-types">إلغاء</a>
     </div>
   </form>
-</div>
-
-{# Floating windows — can both stay open #}
-<div class="float-window" id="explanation-float" hidden>
-  <div class="float-window-head">
-    <strong>إضافة شرح</strong>
-    <button type="button" class="btn ghost small" data-close-float="explanation-float">إغلاق</button>
-  </div>
-  <div class="float-window-body">
-    <textarea id="explanation-editor" rows="8" placeholder="اكتب الشرح التعليمي هنا...">{{ work_type.explanation if work_type and work_type.explanation else '' }}</textarea>
-  </div>
-</div>
-
-<div class="float-window" id="image-float" hidden style="top:140px;left:40px;right:auto">
-  <div class="float-window-head">
-    <strong>إضافة صورة</strong>
-    <button type="button" class="btn ghost small" data-close-float="image-float">إغلاق</button>
-  </div>
-  <div class="float-window-body">
-    {% if work_type and work_type.image_path %}
-    <div style="margin-bottom:12px">
-      <img src="/uploads/{{ work_type.image_path }}" alt="صورة الشرح" style="max-width:100%;border-radius:10px;border:1px solid var(--line)">
-    </div>
-    <label class="checkbox-row" style="margin:0 0 12px">
-      <input type="checkbox" id="clear-image-check" name="clear_image_ui">
-      <span>حذف الصورة من التخزين</span>
-    </label>
-    <p class="field-hint" style="margin:0 0 10px">عند التحديد والحفظ تُحذف الصورة من المجلد نهائياً</p>
-    {% endif %}
-    <input type="file" id="image-editor" accept="image/*">
-    <p class="field-hint" style="margin-top:8px">JPG / PNG / GIF / WEBP — حتى 8 ميجا</p>
-  </div>
 </div>
 {% endblock %}

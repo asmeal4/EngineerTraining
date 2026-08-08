@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{{ page_meta.title }} — تدريب المهندسين{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>{{ page_meta.title }}</h1>
+    <p>{{ page_meta.subtitle }}</p>
+  </div>
+  <div class="actions">
+    <a class="btn" href="{{ page_meta.base_path }}/sections/new">إضافة قسم</a>
+  </div>
+</section>
+
+<div class="panel sections-toolbar-panel">
+  <div class="toolbar sections-toolbar">
+    <form method="get" action="{{ page_meta.base_path }}" data-auto-filter>
+      <input type="search" name="q" value="{{ q or '' }}" placeholder="بحث بالعنوان أو الشرح" aria-label="بحث">
+      <button class="btn secondary" type="submit">بحث</button>
+    </form>
+    <button type="button" class="btn secondary" data-details-toggle aria-pressed="false">
+      إخفاء التفاصيل
+    </button>
+  </div>
+</div>
+
+{% if sections %}
+<div class="sections-list" data-sections-list>
+  {% for section in sections %}
+  <article class="section-card" id="section-{{ section.id }}">
+    <header class="section-card-head">
+      <div class="section-card-title">
+        <span class="section-num" aria-hidden="true" title="الترتيب">{{ section.sort_order }}</span>
+        <div class="section-card-heading">
+          <h2>{{ section.title }}</h2>
+          <button type="button" class="btn ghost small section-details-btn" data-card-details-toggle aria-expanded="true">
+            إخفاء التفاصيل
+          </button>
+        </div>
+      </div>
+      <div class="section-card-actions">
+        <a class="btn secondary small" href="{{ page_meta.base_path }}/sections/{{ section.id }}/edit">تعديل</a>
+        <form method="post" action="{{ page_meta.base_path }}/sections/{{ section.id }}/delete" class="inline-form"
+              onsubmit="return confirm('نقل هذا القسم إلى سلة المحذوفات؟');">
+          <button class="btn danger small" type="submit">حذف</button>
+        </form>
+      </div>
+    </header>
+
+    <div class="section-details">
+      {% if section.explanation %}
+      <p class="section-explanation">{{ section.explanation }}</p>
+      {% endif %}
+
+      {% if section.image_path %}
+      <figure class="section-image">
+        <img src="/uploads/{{ section.image_path }}" alt="{{ section.title }}">
+      </figure>
+      {% endif %}
+
+      {% if not section.explanation and not section.image_path %}
+      <p class="section-empty-hint">لا يوجد شرح أو صورة لهذا القسم بعد — <a href="{{ page_meta.base_path }}/sections/{{ section.id }}/edit">أضف محتوى</a></p>
+      {% endif %}
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<div class="panel">
+  <div class="empty">
+    {% if is_searching %}
+    لا توجد نتائج مطابقة لبحثك
+    {% else %}
+    لا توجد أقسام بعد — <a href="{{ page_meta.base_path }}/sections/new">أضف أول قسم</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

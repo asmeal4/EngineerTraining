@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}مهام — تدريب المهندسين{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>مهام</h1>
+    <p>مهام مع الشرح والصورة وتعيين المهندس</p>
+  </div>
+  <div class="actions">
+    <a class="btn" href="/tasks/new">إضافة مهمة</a>
+  </div>
+</section>
+
+<div class="panel sections-toolbar-panel">
+  <div class="toolbar sections-toolbar">
+    <form method="get" action="/tasks" data-auto-filter>
+      <input type="search" name="q" value="{{ q or '' }}" placeholder="بحث بالعنوان أو الشرح أو المهندس" aria-label="بحث">
+      <button class="btn secondary" type="submit">بحث</button>
+    </form>
+    <button type="button" class="btn secondary" data-details-toggle aria-pressed="false">
+      إخفاء التفاصيل
+    </button>
+  </div>
+</div>
+
+{% if tasks %}
+<div class="sections-list" data-sections-list>
+  {% for task in tasks %}
+  <article class="section-card" id="task-{{ task.id }}">
+    <header class="section-card-head">
+      <div class="section-card-title">
+        <span class="section-num" aria-hidden="true" title="الترتيب">{{ task.sort_order }}</span>
+        <div class="section-card-heading">
+          <h2>{{ task.title }}</h2>
+          <p class="section-assignee">
+            المهندس:
+            {% if task.assigned_user_name %}
+            <strong>{{ task.assigned_user_name }}</strong>
+            {% else %}
+            <span class="muted">غير معيّن</span>
+            {% endif %}
+          </p>
+          <button type="button" class="btn ghost small section-details-btn" data-card-details-toggle aria-expanded="true">
+            إخفاء التفاصيل
+          </button>
+        </div>
+      </div>
+      <div class="section-card-actions">
+        <a class="btn secondary small" href="/tasks/{{ task.id }}/edit">تعديل</a>
+        <form method="post" action="/tasks/{{ task.id }}/delete" class="inline-form"
+              onsubmit="return confirm('نقل هذه المهمة إلى سلة المحذوفات؟');">
+          <button class="btn danger small" type="submit">حذف</button>
+        </form>
+      </div>
+    </header>
+
+    <div class="section-details">
+      {% if task.explanation %}
+      <p class="section-explanation">{{ task.explanation }}</p>
+      {% endif %}
+
+      {% if task.image_path %}
+      <figure class="section-image">
+        <img src="/uploads/{{ task.image_path }}" alt="{{ task.title }}">
+      </figure>
+      {% endif %}
+
+      {% if not task.explanation and not task.image_path %}
+      <p class="section-empty-hint">لا يوجد شرح أو صورة لهذه المهمة بعد — <a href="/tasks/{{ task.id }}/edit">أضف محتوى</a></p>
+      {% endif %}
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<div class="panel">
+  <div class="empty">
+    {% if is_searching %}
+    لا توجد نتائج مطابقة لبحثك
+    {% else %}
+    لا توجد مهام بعد — <a href="/tasks/new">أضف أول مهمة</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

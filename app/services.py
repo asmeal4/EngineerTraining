@@ -6,8 +6,25 @@ from datetime import datetime, timedelta
 from typing import Any, Optional
 
 from .auth import hash_password
-from .config import BASE_DIR, DATA_DIR, UPLOADS_DIR, WORK_TYPE_UPLOADS
+from .config import BASE_DIR, DATA_DIR, SECTION_UPLOADS, TASK_UPLOADS, UPLOADS_DIR, WORK_TYPE_UPLOADS
 from .database import db_session, now_iso, role_label
+
+SECTION_PAGES = {
+    "training": {
+        "title": "التدريب",
+        "subtitle": "شروحات وصور تعليمية مرتبة على أقسام",
+        "entity": "training_section",
+        "entity_label": "قسم تدريب",
+        "base_path": "/training",
+    },
+    "problems": {
+        "title": "أكثر المشكلات",
+        "subtitle": "المشكلات الشائعة مع الشرح والصورة",
+        "entity": "problem_section",
+        "entity_label": "قسم مشكلة",
+        "base_path": "/problems",
+    },
+}
 
 
 def resolve_work_type_image_candidates(image_path: Optional[str]) -> list[Path]:
@@ -55,6 +72,104 @@ def delete_work_type_image_file(image_path: Optional[str]) -> bool:
             continue
     return removed
 
+
+def resolve_section_image_candidates(image_path: Optional[str]) -> list[Path]:
+    if not image_path:
+        return []
+    raw = str(image_path).strip().replace("\\", "/")
+    if not raw:
+        return []
+    path = Path(raw)
+    candidates: list[Path] = []
+    if path.is_absolute():
+        candidates.append(path)
+    else:
+        name = Path(raw).name
+        candidates.extend(
+            [
+                UPLOADS_DIR / raw,
+                SECTION_UPLOADS / name,
+                DATA_DIR / raw,
+                BASE_DIR / "data" / "uploads" / raw,
+                BASE_DIR / raw,
+            ]
+        )
+    seen: set[str] = set()
+    result: list[Path] = []
+    for p in candidates:
+        key = str(p.resolve()) if p.exists() else str(p)
+        if key not in seen:
+            seen.add(key)
+            result.append(p)
+    return result
+
+
+def delete_section_image_file(image_path: Optional[str]) -> bool:
+    removed = False
+    for path in resolve_section_image_candidates(image_path):
+        try:
+            if path.is_file():
+                path.unlink()
+                removed = True
+        except OSError:
+            continue
+    return removed
+
+
+def resolve_task_image_candidates(image_path: Optional[str]) -> list[Path]:
+    if not image_path:
+        return []
+    raw = str(image_path).strip().replace("\\", "/")
+    if not raw:
+        return []
+    path = Path(raw)
+    candidates: list[Path] = []
+    if path.is_absolute():
+        candidates.append(path)
+    else:
+        name = Path(raw).name
+        candidates.extend(
+            [
+                UPLOADS_DIR / raw,
+                TASK_UPLOADS / name,
+                DATA_DIR / raw,
+                BASE_DIR / "data" / "uploads" / raw,
+                BASE_DIR / raw,
+            ]
+        )
+    seen: set[str] = set()
+    result: list[Path] = []
+    for p in candidates:
+        key = str(p.resolve()) if p.exists() else str(p)
+        if key not in seen:
+            seen.add(key)
+            result.append(p)
+    return result
+
+
+def delete_task_image_file(image_path: Optional[str]) -> bool:
+    removed = False
+    for path in resolve_task_image_candidates(image_path):
+        try:
+            if path.is_file():
+                path.unlink()
+                removed = True
+        except OSError:
+            continue
+    return removed
+
+
+def section_entity_for_page(page: str) -> str:
+    meta = SECTION_PAGES.get(page) or SECTION_PAGES["training"]
+    return meta["entity"]
+
+
+def section_page_meta(page: str) -> dict:
+    meta = SECTION_PAGES.get(page)
+    if not meta:
+        raise ValueError("invalid_page")
+    return meta
+
 ACTION_LABELS = {
     "create": "إضافة",
     "update": "تعديل",
@@ -70,6 +185,9 @@ ENTITY_LABELS = {
     "system": "نظام",
     "work_type": "نوع عمل",
     "package": "باقة",
+    "training_section": "قسم تدريب",
+    "problem_section": "قسم مشكلة",
+    "task": "مهمة",
 }
 
 NOT_DELETED = "(deleted_at IS NULL OR deleted_at = '')"
@@ -219,18 +337,50 @@ def get_user_name(user_id: Optional[int]) -> str:
 # Dashboard
 # ---------------------------------------------------------------------------
 
-def dashboard_stats() -> dict:
+def dashboard_stats(user: Optional[dict] = None) -> dict:
+    is_admin = bool(user and user.get("role") == "admin")
+    user_id = int(user["id"]) if user and user.get("id") else None
     with db_session() as conn:
         def count(table: str) -> int:
             return conn.execute(
                 f"SELECT COUNT(*) AS c FROM {table} WHERE {NOT_DELETED}"
             ).fetchone()["c"]
 
+        def section_count(page: str) -> int:
+            return conn.execute(
+                f"""
+                SELECT COUNT(*) AS c FROM content_sections
+                WHERE page = ? AND {NOT_DELETED}
+                """,
+                (page,),
+            ).fetchone()["c"]
+
         trash = 0
-        for table in ("users", "systems", "work_types", "packages"):
+        for table in ("users", "systems", "work_types", "packages", "content_sections", "tasks"):
             trash += conn.execute(
                 f"SELECT COUNT(*) AS c FROM {table} WHERE {IS_DELETED}"
             ).fetchone()["c"]
+
+        if is_admin or user_id is None:
+            task_count = count("tasks")
+        else:
+            task_count = conn.execute(
+                f"""
+                SELECT COUNT(*) AS c FROM tasks
+                WHERE assigned_user_id = ? AND {NOT_DELETED}
+                """,
+                (user_id,),
+            ).fetchone()["c"]
+
+        training_count = section_count("training")
+        problems_count = section_count("problems")
+        work_type_count = count("work_types")
+        package_count = count("packages")
+        user_count = count("users")
+        active_users = conn.execute(
+            f"SELECT COUNT(*) AS c FROM users WHERE is_active = 1 AND {NOT_DELETED}"
+        ).fetchone()["c"]
+        system_count = count("systems")
 
         top_rows = conn.execute(
             f"""
@@ -259,26 +409,31 @@ def dashboard_stats() -> dict:
             item["work_types"] = work_types
             top_packages.append(item)
 
-        return {
-            "user_count": count("users"),
-            "system_count": count("systems"),
-            "work_type_count": count("work_types"),
-            "package_count": count("packages"),
-            "trash_count": trash,
-            "active_users": conn.execute(
-                f"SELECT COUNT(*) AS c FROM users WHERE is_active = 1 AND {NOT_DELETED}"
-            ).fetchone()["c"],
-            "top_packages": top_packages,
-        }
+    return {
+        "user_count": user_count,
+        "system_count": system_count,
+        "task_count": task_count,
+        "training_count": training_count,
+        "problems_count": problems_count,
+        "work_type_count": work_type_count,
+        "package_count": package_count,
+        "trash_count": trash,
+        "active_users": active_users,
+        "top_packages": top_packages,
+        "dashboard_tasks": list_tasks(user=user),
+        "tasks_for_self": not is_admin,
+    }
 
 
 # ---------------------------------------------------------------------------
 # Users
 # ---------------------------------------------------------------------------
 
-def list_users(q: str = "") -> list[dict]:
+def list_users(q: str = "", *, active_only: bool = False) -> list[dict]:
     clauses = ["(u.deleted_at IS NULL OR u.deleted_at = '')"]
     params: list[Any] = []
+    if active_only:
+        clauses.append("u.is_active = 1")
     if q:
         clauses.append("(u.name LIKE ? OR u.phone LIKE ?)")
         like = f"%{q.strip()}%"
@@ -294,7 +449,7 @@ def list_users(q: str = "") -> list[dict]:
             LEFT JOIN users cb ON cb.id = u.created_by
             LEFT JOIN users ub ON ub.id = u.updated_by
             WHERE {where}
-            ORDER BY u.id
+            ORDER BY u.name COLLATE NOCASE, u.id
             """,
             params,
         ).fetchall()
@@ -721,13 +876,6 @@ def purge_system(system_id: int, actor_id: int) -> bool:
 # ---------------------------------------------------------------------------
 
 def list_work_types(q: str = "") -> list[dict]:
-    clauses = [NOT_DELETED]
-    params: list[Any] = []
-    if q:
-        clauses.append("(w.name LIKE ? OR w.abbreviation LIKE ?)")
-        like = f"%{q.strip()}%"
-        params.extend([like, like])
-    where = " AND ".join(c.replace("deleted_at", "w.deleted_at") if "deleted_at" in c else c for c in clauses)
     with db_session() as conn:
         rows = conn.execute(
             f"""
@@ -737,12 +885,21 @@ def list_work_types(q: str = "") -> list[dict]:
             FROM work_types w
             LEFT JOIN users cb ON cb.id = w.created_by
             LEFT JOIN users ub ON ub.id = w.updated_by
-            WHERE {where}
-            ORDER BY w.name
-            """,
-            params,
+            WHERE {NOT_DELETED.replace("deleted_at", "w.deleted_at")}
+            ORDER BY w.sort_order ASC, w.id ASC
+            """
         ).fetchall()
-    return [dict(r) for r in rows]
+    items = [dict(r) for r in rows]
+    needle = (q or "").strip().lower()
+    if needle:
+        items = [
+            item
+            for item in items
+            if needle in (item.get("name") or "").lower()
+            or needle in (item.get("abbreviation") or "").lower()
+            or needle in (item.get("explanation") or "").lower()
+        ]
+    return items
 
 
 def get_work_type(work_type_id: int) -> Optional[dict]:
@@ -765,9 +922,10 @@ def get_work_type(work_type_id: int) -> Optional[dict]:
 def create_work_type(data: dict, actor_id: Optional[int] = None) -> int:
     name = (data.get("name") or "").strip()
     abbr = (data.get("abbreviation") or "").strip()
-    has_explanation = 1 if data.get("has_explanation") else 0
     explanation = (data.get("explanation") or "").strip() or None
     image_path = data.get("image_path")
+    sort_order = int(data.get("sort_order") or 0)
+    has_explanation = 1 if (explanation or image_path) else 0
     if not name or not abbr:
         raise ValueError("required")
     with db_session() as conn:
@@ -775,8 +933,8 @@ def create_work_type(data: dict, actor_id: Optional[int] = None) -> int:
             """
             INSERT INTO work_types
             (name, abbreviation, has_explanation, explanation, image_path,
-             created_at, updated_at, created_by, updated_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             sort_order, created_at, updated_at, created_by, updated_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 name,
@@ -784,6 +942,7 @@ def create_work_type(data: dict, actor_id: Optional[int] = None) -> int:
                 has_explanation,
                 explanation if has_explanation else None,
                 image_path if has_explanation else None,
+                sort_order,
                 now_iso(),
                 now_iso(),
                 actor_id,
@@ -807,8 +966,8 @@ def update_work_type(
 ) -> None:
     name = (data.get("name") or "").strip()
     abbr = (data.get("abbreviation") or "").strip()
-    has_explanation = 1 if data.get("has_explanation") else 0
     explanation = (data.get("explanation") or "").strip() or None
+    sort_order = int(data.get("sort_order") or 0)
     if not name or not abbr:
         raise ValueError("required")
     with db_session() as conn:
@@ -824,16 +983,20 @@ def update_work_type(
             new_image = data["image_path"]
         else:
             new_image = old_image
+        has_explanation = 1 if (explanation or new_image) else 0
+        final_image = new_image if has_explanation else None
         fields = """
             name = ?, abbreviation = ?, has_explanation = ?,
-            explanation = ?, image_path = ?, updated_at = ?, updated_by = ?
+            explanation = ?, image_path = ?, sort_order = ?,
+            updated_at = ?, updated_by = ?
         """
         values: list[Any] = [
             name,
             abbr,
             has_explanation,
             explanation if has_explanation else None,
-            new_image,
+            final_image,
+            sort_order,
             now_iso(),
             actor_id,
             work_type_id,
@@ -851,7 +1014,7 @@ def update_work_type(
             details=f"تعديل نوع عمل: {name}",
         )
     # Delete file only when image was cleared or replaced from the image UI
-    if old_image and old_image != new_image:
+    if old_image and old_image != final_image:
         delete_work_type_image_file(old_image)
 
 
@@ -937,6 +1100,475 @@ def purge_work_type(work_type_id: int, actor_id: int) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Content sections (training / problems)
+# ---------------------------------------------------------------------------
+
+def list_sections(page: str, q: str = "") -> list[dict]:
+    section_page_meta(page)
+    with db_session() as conn:
+        rows = conn.execute(
+            """
+            SELECT s.*,
+                   cb.name AS created_by_name,
+                   ub.name AS updated_by_name
+            FROM content_sections s
+            LEFT JOIN users cb ON cb.id = s.created_by
+            LEFT JOIN users ub ON ub.id = s.updated_by
+            WHERE s.page = ?
+              AND (s.deleted_at IS NULL OR s.deleted_at = '')
+            ORDER BY s.sort_order ASC, s.id ASC
+            """,
+            (page,),
+        ).fetchall()
+    items = [dict(r) for r in rows]
+    needle = (q or "").strip().lower()
+    if needle:
+        items = [
+            item
+            for item in items
+            if needle in (item.get("title") or "").lower()
+            or needle in (item.get("explanation") or "").lower()
+        ]
+    return items
+
+
+def get_section(section_id: int) -> Optional[dict]:
+    with db_session() as conn:
+        row = conn.execute(
+            """
+            SELECT s.*,
+                   cb.name AS created_by_name,
+                   ub.name AS updated_by_name
+            FROM content_sections s
+            LEFT JOIN users cb ON cb.id = s.created_by
+            LEFT JOIN users ub ON ub.id = s.updated_by
+            WHERE s.id = ?
+            """,
+            (section_id,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def create_section(page: str, data: dict, actor_id: Optional[int] = None) -> int:
+    meta = section_page_meta(page)
+    title = (data.get("title") or "").strip()
+    explanation = (data.get("explanation") or "").strip() or None
+    image_path = data.get("image_path")
+    sort_order = int(data.get("sort_order") or 0)
+    if not title:
+        raise ValueError("required")
+    entity = meta["entity"]
+    with db_session() as conn:
+        cur = conn.execute(
+            """
+            INSERT INTO content_sections
+            (page, title, explanation, image_path, sort_order,
+             created_at, updated_at, created_by, updated_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                page,
+                title,
+                explanation,
+                image_path,
+                sort_order,
+                now_iso(),
+                now_iso(),
+                actor_id,
+                actor_id,
+            ),
+        )
+        sid = int(cur.lastrowid)
+        log_activity(
+            conn,
+            user_id=actor_id,
+            action="create",
+            entity_type=entity,
+            entity_id=sid,
+            details=f"إضافة {meta['entity_label']}: {title}",
+        )
+        return sid
+
+
+def update_section(
+    section_id: int, data: dict, actor_id: Optional[int] = None
+) -> None:
+    title = (data.get("title") or "").strip()
+    explanation = (data.get("explanation") or "").strip() or None
+    sort_order = int(data.get("sort_order") or 0)
+    if not title:
+        raise ValueError("required")
+    with db_session() as conn:
+        existing = conn.execute(
+            f"SELECT * FROM content_sections WHERE id = ? AND {NOT_DELETED}",
+            (section_id,),
+        ).fetchone()
+        if not existing:
+            raise ValueError("not_found")
+        old_image = existing["image_path"]
+        if "image_path" in data:
+            new_image = data["image_path"]
+        else:
+            new_image = old_image
+        page = existing["page"]
+        meta = section_page_meta(page)
+        conn.execute(
+            """
+            UPDATE content_sections
+            SET title = ?, explanation = ?, image_path = ?, sort_order = ?,
+                updated_at = ?, updated_by = ?
+            WHERE id = ?
+            """,
+            (
+                title,
+                explanation,
+                new_image,
+                sort_order,
+                now_iso(),
+                actor_id,
+                section_id,
+            ),
+        )
+        log_activity(
+            conn,
+            user_id=actor_id,
+            action="update",
+            entity_type=meta["entity"],
+            entity_id=section_id,
+            details=f"تعديل {meta['entity_label']}: {title}",
+        )
+    if old_image and old_image != new_image:
+        delete_section_image_file(old_image)
+
+
+def soft_delete_section(section_id: int, actor_id: int) -> bool:
+    with db_session() as conn:
+        row = conn.execute(
+            f"SELECT * FROM content_sections WHERE id = ? AND {NOT_DELETED}",
+            (section_id,),
+        ).fetchone()
+        if not row:
+            return False
+        meta = section_page_meta(row["page"])
+        conn.execute(
+            """
+            UPDATE content_sections
+            SET deleted_at = ?, deleted_by = ?, updated_at = ?, updated_by = ?
+            WHERE id = ?
+            """,
+            (now_iso(), actor_id, now_iso(), actor_id, section_id),
+        )
+        log_activity(
+            conn,
+            user_id=actor_id,
+            action="delete",
+            entity_type=meta["entity"],
+            entity_id=section_id,
+            details=f"حذف {meta['entity_label']}: {row['title']}",
+        )
+    return True
+
+
+def restore_section(section_id: int, actor_id: int) -> bool:
+    with db_session() as conn:
+        row = conn.execute(
+            "SELECT * FROM content_sections WHERE id = ?", (section_id,)
+        ).fetchone()
+        if not row or not row["deleted_at"]:
+            return False
+        meta = section_page_meta(row["page"])
+        conn.execute(
+            """
+            UPDATE content_sections
+            SET deleted_at = NULL, deleted_by = NULL,
+                updated_at = ?, updated_by = ?
+            WHERE id = ?
+            """,
+            (now_iso(), actor_id, section_id),
+        )
+        log_activity(
+            conn,
+            user_id=actor_id,
+            action="restore",
+            entity_type=meta["entity"],
+            entity_id=section_id,
+            details=f"استرجاع {meta['entity_label']}: {row['title']}",
+        )
+    return True
+
+
+def purge_section(section_id: int, actor_id: int) -> bool:
+    with db_session() as conn:
+        row = conn.execute(
+            "SELECT * FROM content_sections WHERE id = ?", (section_id,)
+        ).fetchone()
+        if not row or not row["deleted_at"]:
+            return False
+        image_path = row["image_path"]
+        meta = section_page_meta(row["page"])
+        conn.execute("DELETE FROM content_sections WHERE id = ?", (section_id,))
+        log_activity(
+            conn,
+            user_id=actor_id,
+            action="purge",
+            entity_type=meta["entity"],
+            entity_id=section_id,
+            details=f"حذف نهائي ل{meta['entity_label']}: {row['title']}",
+        )
+    delete_section_image_file(image_path)
+    return True
+
+
+
+# ---------------------------------------------------------------------------
+# Tasks
+# ---------------------------------------------------------------------------
+
+def _parse_assigned_user_id(raw: Any) -> Optional[int]:
+    if raw is None or raw == "":
+        return None
+    try:
+        uid = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return uid if uid > 0 else None
+
+
+def list_tasks(q: str = "", user: Optional[dict] = None) -> list[dict]:
+    """List tasks. If user is a non-admin, filter to assigned tasks only (for dashboard)."""
+    clauses = ["(t.deleted_at IS NULL OR t.deleted_at = '')"]
+    params: list[Any] = []
+    if user and user.get("role") != "admin" and user.get("id") is not None:
+        clauses.append("t.assigned_user_id = ?")
+        params.append(int(user["id"]))
+    where = " AND ".join(clauses)
+    with db_session() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT t.*,
+                   au.name AS assigned_user_name,
+                   cb.name AS created_by_name,
+                   ub.name AS updated_by_name
+            FROM tasks t
+            LEFT JOIN users au ON au.id = t.assigned_user_id
+            LEFT JOIN users cb ON cb.id = t.created_by
+            LEFT JOIN users ub ON ub.id = t.updated_by
+            WHERE {where}
+            ORDER BY t.sort_order ASC, t.id ASC
+            """,
+            params,
+        ).fetchall()
+    items = [dict(r) for r in rows]
+    needle = (q or "").strip().lower()
+    if needle:
+        items = [
+            item
+            for item in items
+            if needle in (item.get("title") or "").lower()
+            or needle in (item.get("explanation") or "").lower()
+            or needle in (item.get("assigned_user_name") or "").lower()
+        ]
+    return items
+
+
+def get_task(task_id: int) -> Optional[dict]:
+    with db_session() as conn:
+        row = conn.execute(
+            """
+            SELECT t.*,
+                   au.name AS assigned_user_name,
+                   cb.name AS created_by_name,
+                   ub.name AS updated_by_name
+            FROM tasks t
+            LEFT JOIN users au ON au.id = t.assigned_user_id
+            LEFT JOIN users cb ON cb.id = t.created_by
+            LEFT JOIN users ub ON ub.id = t.updated_by
+            WHERE t.id = ?
+            """,
+            (task_id,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def create_task(data: dict, actor_id: Optional[int] = None) -> int:
+    title = (data.get("title") or "").strip()
+    explanation = (data.get("explanation") or "").strip() or None
+    image_path = data.get("image_path")
+    sort_order = int(data.get("sort_order") or 0)
+    assigned_user_id = _parse_assigned_user_id(data.get("assigned_user_id"))
+    if not title:
+        raise ValueError("required")
+    with db_session() as conn:
+        if assigned_user_id is not None:
+            user = conn.execute(
+                f"SELECT id FROM users WHERE id = ? AND is_active = 1 AND {NOT_DELETED}",
+                (assigned_user_id,),
+            ).fetchone()
+            if not user:
+                raise ValueError("invalid_assignee")
+        cur = conn.execute(
+            """
+            INSERT INTO tasks
+            (title, explanation, image_path, sort_order, assigned_user_id,
+             created_at, updated_at, created_by, updated_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                title,
+                explanation,
+                image_path,
+                sort_order,
+                assigned_user_id,
+                now_iso(),
+                now_iso(),
+                actor_id,
+                actor_id,
+            ),
+        )
+        tid = int(cur.lastrowid)
+        log_activity(
+            conn,
+            user_id=actor_id,
+            action="create",
+            entity_type="task",
+            entity_id=tid,
+            details=f"إضافة مهمة: {title}",
+        )
+        return tid
+
+
+def update_task(task_id: int, data: dict, actor_id: Optional[int] = None) -> None:
+    title = (data.get("title") or "").strip()
+    explanation = (data.get("explanation") or "").strip() or None
+    sort_order = int(data.get("sort_order") or 0)
+    assigned_user_id = _parse_assigned_user_id(data.get("assigned_user_id"))
+    if not title:
+        raise ValueError("required")
+    with db_session() as conn:
+        existing = conn.execute(
+            f"SELECT * FROM tasks WHERE id = ? AND {NOT_DELETED}",
+            (task_id,),
+        ).fetchone()
+        if not existing:
+            raise ValueError("not_found")
+        if assigned_user_id is not None:
+            user = conn.execute(
+                f"SELECT id FROM users WHERE id = ? AND {NOT_DELETED}",
+                (assigned_user_id,),
+            ).fetchone()
+            if not user:
+                raise ValueError("invalid_assignee")
+        old_image = existing["image_path"]
+        if "image_path" in data:
+            new_image = data["image_path"]
+        else:
+            new_image = old_image
+        conn.execute(
+            """
+            UPDATE tasks
+            SET title = ?, explanation = ?, image_path = ?, sort_order = ?,
+                assigned_user_id = ?, updated_at = ?, updated_by = ?
+            WHERE id = ?
+            """,
+            (
+                title,
+                explanation,
+                new_image,
+                sort_order,
+                assigned_user_id,
+                now_iso(),
+                actor_id,
+                task_id,
+            ),
+        )
+        log_activity(
+            conn,
+            user_id=actor_id,
+            action="update",
+            entity_type="task",
+            entity_id=task_id,
+            details=f"تعديل مهمة: {title}",
+        )
+    if old_image and old_image != new_image:
+        delete_task_image_file(old_image)
+
+
+def soft_delete_task(task_id: int, actor_id: int) -> bool:
+    with db_session() as conn:
+        row = conn.execute(
+            f"SELECT * FROM tasks WHERE id = ? AND {NOT_DELETED}",
+            (task_id,),
+        ).fetchone()
+        if not row:
+            return False
+        conn.execute(
+            """
+            UPDATE tasks
+            SET deleted_at = ?, deleted_by = ?, updated_at = ?, updated_by = ?
+            WHERE id = ?
+            """,
+            (now_iso(), actor_id, now_iso(), actor_id, task_id),
+        )
+        log_activity(
+            conn,
+            user_id=actor_id,
+            action="delete",
+            entity_type="task",
+            entity_id=task_id,
+            details=f"حذف مهمة: {row['title']}",
+        )
+    return True
+
+
+def restore_task(task_id: int, actor_id: int) -> bool:
+    with db_session() as conn:
+        row = conn.execute(
+            "SELECT * FROM tasks WHERE id = ?", (task_id,)
+        ).fetchone()
+        if not row or not row["deleted_at"]:
+            return False
+        conn.execute(
+            """
+            UPDATE tasks
+            SET deleted_at = NULL, deleted_by = NULL,
+                updated_at = ?, updated_by = ?
+            WHERE id = ?
+            """,
+            (now_iso(), actor_id, task_id),
+        )
+        log_activity(
+            conn,
+            user_id=actor_id,
+            action="restore",
+            entity_type="task",
+            entity_id=task_id,
+            details=f"استرجاع مهمة: {row['title']}",
+        )
+    return True
+
+
+def purge_task(task_id: int, actor_id: int) -> bool:
+    with db_session() as conn:
+        row = conn.execute(
+            "SELECT * FROM tasks WHERE id = ?", (task_id,)
+        ).fetchone()
+        if not row or not row["deleted_at"]:
+            return False
+        image_path = row["image_path"]
+        conn.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+        log_activity(
+            conn,
+            user_id=actor_id,
+            action="purge",
+            entity_type="task",
+            entity_id=task_id,
+            details=f"حذف نهائي لمهمة: {row['title']}",
+        )
+    delete_task_image_file(image_path)
+    return True
+
+
+# ---------------------------------------------------------------------------
 # Packages
 # ---------------------------------------------------------------------------
 
@@ -958,7 +1590,7 @@ def _package_links(conn, package_id: int) -> tuple[list[dict], list[dict]]:
         FROM package_work_types pw
         JOIN work_types w ON w.id = pw.work_type_id
         WHERE pw.package_id = ?
-        ORDER BY w.name
+        ORDER BY w.sort_order, w.id
         """,
         (package_id,),
     ).fetchall()
@@ -1236,6 +1868,35 @@ def list_trash(q: str = "") -> list[dict]:
                 FROM packages WHERE {IS_DELETED}
                 """,
             ),
+            (
+                "training_section",
+                "قسم تدريب",
+                f"""
+                SELECT id, title, explanation AS subtitle,
+                       deleted_at, deleted_by
+                FROM content_sections
+                WHERE page = 'training' AND {IS_DELETED}
+                """,
+            ),
+            (
+                "problem_section",
+                "قسم مشكلة",
+                f"""
+                SELECT id, title, explanation AS subtitle,
+                       deleted_at, deleted_by
+                FROM content_sections
+                WHERE page = 'problems' AND {IS_DELETED}
+                """,
+            ),
+            (
+                "task",
+                "مهمة",
+                f"""
+                SELECT id, title, explanation AS subtitle,
+                       deleted_at, deleted_by
+                FROM tasks WHERE {IS_DELETED}
+                """,
+            ),
         ]
         for entity, label, sql in queries:
             for row in conn.execute(sql).fetchall():
@@ -1263,6 +1924,9 @@ def restore_trash_item(
         "system": lambda: (restore_system(item_id, actor_id), ""),
         "work_type": lambda: (restore_work_type(item_id, actor_id), ""),
         "package": lambda: (restore_package(item_id, actor_id), ""),
+        "training_section": lambda: (restore_section(item_id, actor_id), ""),
+        "problem_section": lambda: (restore_section(item_id, actor_id), ""),
+        "task": lambda: (restore_task(item_id, actor_id), ""),
     }
     fn = handlers.get(entity)
     if not fn:
@@ -1281,6 +1945,9 @@ def purge_trash_item(
         "system": lambda: (purge_system(item_id, actor_id), ""),
         "work_type": lambda: (purge_work_type(item_id, actor_id), ""),
         "package": lambda: (purge_package(item_id, actor_id), ""),
+        "training_section": lambda: (purge_section(item_id, actor_id), ""),
+        "problem_section": lambda: (purge_section(item_id, actor_id), ""),
+        "task": lambda: (purge_task(item_id, actor_id), ""),
     }
     fn = handlers.get(entity)
     if not fn:

@@ -126,6 +126,7 @@ def init_db() -> None:
                 has_explanation INTEGER NOT NULL DEFAULT 0,
                 explanation TEXT,
                 image_path TEXT,
+                sort_order INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT,
                 updated_at TEXT,
                 created_by INTEGER REFERENCES users(id),
@@ -172,8 +173,42 @@ def init_db() -> None:
                 created_at TEXT
             );
 
+            CREATE TABLE IF NOT EXISTS content_sections (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                page TEXT NOT NULL,
+                title TEXT NOT NULL,
+                explanation TEXT,
+                image_path TEXT,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT,
+                updated_at TEXT,
+                created_by INTEGER REFERENCES users(id),
+                updated_by INTEGER REFERENCES users(id),
+                deleted_at TEXT,
+                deleted_by INTEGER REFERENCES users(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                explanation TEXT,
+                image_path TEXT,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                assigned_user_id INTEGER REFERENCES users(id),
+                created_at TEXT,
+                updated_at TEXT,
+                created_by INTEGER REFERENCES users(id),
+                updated_by INTEGER REFERENCES users(id),
+                deleted_at TEXT,
+                deleted_by INTEGER REFERENCES users(id)
+            );
+
             CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
             CREATE INDEX IF NOT EXISTS idx_systems_sort ON systems(sort_order);
+            CREATE INDEX IF NOT EXISTS idx_sections_page_sort
+                ON content_sections(page, sort_order);
+            CREATE INDEX IF NOT EXISTS idx_tasks_sort ON tasks(sort_order);
+            CREATE INDEX IF NOT EXISTS idx_tasks_assigned ON tasks(assigned_user_id);
             CREATE INDEX IF NOT EXISTS idx_activity_created_at
                 ON activity_log(created_at);
             CREATE INDEX IF NOT EXISTS idx_activity_user ON activity_log(user_id);
@@ -183,7 +218,26 @@ def init_db() -> None:
         )
         _ensure_soft_delete_columns(
             conn,
-            ["users", "systems", "work_types", "packages"],
+            ["users", "systems", "work_types", "packages", "content_sections", "tasks"],
+        )
+        if not _column_exists(conn, "work_types", "sort_order"):
+            conn.execute(
+                "ALTER TABLE work_types ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0"
+            )
+            rows = conn.execute(
+                """
+                SELECT id FROM work_types
+                WHERE deleted_at IS NULL OR deleted_at = ''
+                ORDER BY name ASC, id ASC
+                """
+            ).fetchall()
+            for i, row in enumerate(rows, start=1):
+                conn.execute(
+                    "UPDATE work_types SET sort_order = ? WHERE id = ?",
+                    (i, row["id"]),
+                )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_work_types_sort ON work_types(sort_order)"
         )
         # Drop legacy install-type tables if present (replaced by work types)
         conn.execute("DROP TABLE IF EXISTS package_install_types")

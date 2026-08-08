@@ -6,56 +6,74 @@
     <h1>نوع العمل</h1>
     <p>أنواع العمل مع الشرح والصورة التعليمية</p>
   </div>
-  <a class="btn" href="/work-types/new">نوع عمل جديد</a>
+  <div class="actions">
+    <a class="btn" href="/work-types/new">إضافة نوع عمل</a>
+  </div>
 </section>
 
-<div class="panel">
-  <div class="toolbar">
+<div class="panel sections-toolbar-panel">
+  <div class="toolbar sections-toolbar">
     <form method="get" action="/work-types" data-auto-filter>
-      <input type="search" name="q" value="{{ q }}" placeholder="بحث بالاسم أو الاختصار">
+      <input type="search" name="q" value="{{ q or '' }}" placeholder="بحث بالاسم أو الاختصار أو الشرح" aria-label="بحث">
       <button class="btn secondary" type="submit">بحث</button>
     </form>
+    <button type="button" class="btn secondary" data-details-toggle aria-pressed="false">
+      إخفاء التفاصيل
+    </button>
   </div>
-  {% if work_types %}
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>الاسم</th>
-          <th>الاختصار</th>
-          <th>شرح</th>
-          <th>أضافه</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for w in work_types %}
-        <tr>
-          <td><strong>{{ w.name }}</strong></td>
-          <td>{{ w.abbreviation }}</td>
-          <td>
-            {% if w.has_explanation %}
-            <span class="badge active">نعم</span>
-            {% else %}
-            <span class="badge unknown">لا</span>
-            {% endif %}
-          </td>
-          <td>{{ w.created_by_name or '—' }}</td>
-          <td>
-            <div class="actions" style="margin:0">
-              <a class="btn ghost small" href="/work-types/{{ w.id }}/edit">تعديل</a>
-              <form method="post" action="/work-types/{{ w.id }}/delete" onsubmit="return confirm('نقل إلى سلة المحذوفات؟');">
-                <button class="btn danger-soft small" type="submit">حذف</button>
-              </form>
-            </div>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-  <div class="empty">لا توجد أنواع عمل</div>
-  {% endif %}
 </div>
+
+{% if work_types %}
+<div class="sections-list" data-sections-list>
+  {% for w in work_types %}
+  <article class="section-card" id="work-type-{{ w.id }}">
+    <header class="section-card-head">
+      <div class="section-card-title">
+        <span class="section-num" aria-hidden="true" title="الترتيب">{{ w.sort_order }}</span>
+        <div class="section-card-heading">
+          <h2>{{ w.name }}</h2>
+          <p class="section-abbr">{{ w.abbreviation }}</p>
+          <button type="button" class="btn ghost small section-details-btn" data-card-details-toggle aria-expanded="true">
+            إخفاء التفاصيل
+          </button>
+        </div>
+      </div>
+      <div class="section-card-actions">
+        <a class="btn secondary small" href="/work-types/{{ w.id }}/edit">تعديل</a>
+        <form method="post" action="/work-types/{{ w.id }}/delete" class="inline-form"
+              onsubmit="return confirm('نقل نوع العمل إلى سلة المحذوفات؟');">
+          <button class="btn danger small" type="submit">حذف</button>
+        </form>
+      </div>
+    </header>
+
+    <div class="section-details">
+      {% if w.explanation %}
+      <p class="section-explanation">{{ w.explanation }}</p>
+      {% endif %}
+
+      {% if w.image_path %}
+      <figure class="section-image">
+        <img src="/uploads/{{ w.image_path }}" alt="{{ w.name }}">
+      </figure>
+      {% endif %}
+
+      {% if not w.explanation and not w.image_path %}
+      <p class="section-empty-hint">لا يوجد شرح أو صورة بعد — <a href="/work-types/{{ w.id }}/edit">أضف محتوى</a></p>
+      {% endif %}
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<div class="panel">
+  <div class="empty">
+    {% if is_searching %}
+    لا توجد نتائج مطابقة لبحثك
+    {% else %}
+    لا توجد أنواع عمل بعد — <a href="/work-types/new">أضف أول نوع عمل</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
 {% endblock %}

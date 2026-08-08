@@ -353,10 +353,91 @@
     });
   }
 
+  function setCardDetailsVisible(card, show) {
+    if (!card) return;
+    if (show) {
+      card.classList.remove("section-card--collapsed");
+    } else {
+      card.classList.add("section-card--collapsed");
+    }
+    var btn = card.querySelector("[data-card-details-toggle]");
+    if (btn) {
+      btn.textContent = show ? "إخفاء التفاصيل" : "إظهار التفاصيل";
+      btn.setAttribute("aria-expanded", show ? "true" : "false");
+    }
+  }
+
+  function syncGlobalDetailsButton() {
+    var globalBtn = document.querySelector("[data-details-toggle]");
+    if (!globalBtn) return;
+    var cards = document.querySelectorAll(".section-card");
+    if (!cards.length) {
+      globalBtn.textContent = "إخفاء التفاصيل";
+      globalBtn.setAttribute("aria-pressed", "false");
+      return;
+    }
+    var anyCollapsed = false;
+    cards.forEach(function (card) {
+      if (card.classList.contains("section-card--collapsed")) anyCollapsed = true;
+    });
+    // Global button: if any collapsed, offer "show all"; else "hide all"
+    var allShown = !anyCollapsed;
+    globalBtn.textContent = allShown ? "إخفاء التفاصيل" : "إظهار التفاصيل";
+    globalBtn.setAttribute("aria-pressed", allShown ? "false" : "true");
+  }
+
+  function applyAllDetailsVisibility(show) {
+    document.querySelectorAll(".section-card").forEach(function (card) {
+      setCardDetailsVisible(card, show);
+    });
+    syncGlobalDetailsButton();
+  }
+
+  function initDetailsToggle() {
+    document.querySelectorAll("[data-card-details-toggle]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var card = btn.closest(".section-card");
+        if (!card) return;
+        var currentlyShown = !card.classList.contains("section-card--collapsed");
+        setCardDetailsVisible(card, !currentlyShown);
+        syncGlobalDetailsButton();
+      });
+    });
+
+    var globalBtn = document.querySelector("[data-details-toggle]");
+    if (!globalBtn) return;
+
+    var show = true;
+    try {
+      var stored = localStorage.getItem(
+        "sectionsDetailsVisible:" + location.pathname
+      );
+      if (stored === "0") show = false;
+      if (stored === "1") show = true;
+    } catch (e) {}
+    applyAllDetailsVisibility(show);
+
+    globalBtn.addEventListener("click", function () {
+      var anyCollapsed = false;
+      document.querySelectorAll(".section-card").forEach(function (card) {
+        if (card.classList.contains("section-card--collapsed")) anyCollapsed = true;
+      });
+      var nextShow = anyCollapsed;
+      applyAllDetailsVisibility(nextShow);
+      try {
+        localStorage.setItem(
+          "sectionsDetailsVisible:" + location.pathname,
+          nextShow ? "1" : "0"
+        );
+      } catch (e) {}
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     initAutoFilters();
     initMultiPickers();
     initFloatWindows();
     initWorkTypeToggle();
+    initDetailsToggle();
   });
 })();

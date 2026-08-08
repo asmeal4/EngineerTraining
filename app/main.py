@@ -12,7 +12,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import auth, backup, services
-from .config import BASE_DIR, HTTPS_ONLY, SECRET_KEY, SESSION_COOKIE, WORK_TYPE_UPLOADS
+from .config import BASE_DIR, HTTPS_ONLY, SECRET_KEY, SECTION_UPLOADS, SESSION_COOKIE, TASK_UPLOADS, WORK_TYPE_UPLOADS
 from .database import init_db
 
 
@@ -121,6 +121,51 @@ async def save_work_type_image(upload: Optional[UploadFile]) -> Optional[str]:
     return f"work_types/{name}"
 
 
+async def save_section_image(upload: Optional[UploadFile]) -> Optional[str]:
+    if not upload or not upload.filename:
+        return None
+    ext = Path(upload.filename).suffix.lower()
+    if ext not in (".jpg", ".jpeg", ".png", ".gif", ".webp"):
+        raise ValueError("invalid_image")
+    name = f"{uuid4().hex}{ext}"
+    dest = SECTION_UPLOADS / name
+    content = await upload.read()
+    if len(content) > 8 * 1024 * 1024:
+        raise ValueError("image_too_large")
+    dest.write_bytes(content)
+    return f"sections/{name}"
+
+
+async def save_task_image(upload: Optional[UploadFile]) -> Optional[str]:
+    if not upload or not upload.filename:
+        return None
+    ext = Path(upload.filename).suffix.lower()
+    if ext not in (".jpg", ".jpeg", ".png", ".gif", ".webp"):
+        raise ValueError("invalid_image")
+    name = f"{uuid4().hex}{ext}"
+    dest = TASK_UPLOADS / name
+    content = await upload.read()
+    if len(content) > 8 * 1024 * 1024:
+        raise ValueError("image_too_large")
+    dest.write_bytes(content)
+    return f"tasks/{name}"
+
+
+def _section_form_error(exc: Exception) -> str:
+    return {
+        "required": "عنوان القسم مطلوب",
+        "not_found": "القسم غير موجود",
+        "invalid_image": "صيغة الصورة غير مدعومة",
+        "image_too_large": "حجم الصورة كبير جداً",
+        "invalid_page": "صفحة غير صالحة",
+        "invalid_direction": "اتجاه ترتيب غير صالح",
+    }.get(str(exc), "تعذر الحفظ")
+
+
+def _assert_section_page(section: dict, page: str) -> bool:
+    return bool(section) and section.get("page") == page and not section.get("deleted_at")
+
+
 @app.get("/favicon.ico")
 def favicon():
     return FileResponse(
@@ -167,7 +212,12 @@ def logout(request: Request):
 def dashboard(request: Request):
     if (redir := auth.require_login(request)):
         return redir
-    return render(request, "dashboard.html", {"stats": services.dashboard_stats()})
+    user = auth.get_current_user(request)
+    return render(
+        request,
+        "dashboard.html",
+        {"stats": services.dashboard_stats(user)},
+    )
 
 
 # --- Users ---
@@ -382,10 +432,15 @@ def systems_delete(request: Request, system_id: int):
 def work_types_list(request: Request, q: str = ""):
     if (redir := auth.require_login(request)):
         return redir
+    is_searching = bool((q or "").strip())
     return render(
         request,
         "work_types.html",
-        {"work_types": services.list_work_types(q), "q": q},
+        {
+            "work_types": services.list_work_types(q),
+            "q": q,
+            "is_searching": is_searching,
+        },
     )
 
 
@@ -410,9 +465,9 @@ async def work_types_create(request: Request):
             {
                 "name": form.get("name"),
                 "abbreviation": form.get("abbreviation"),
-                "has_explanation": form.get("has_explanation") == "1",
                 "explanation": form.get("explanation"),
                 "image_path": image_path,
+                "sort_order": form.get("sort_order") or 0,
             },
             actor_id=current_user_id(request),
         )
@@ -452,8 +507,8 @@ async def work_types_update(request: Request, work_type_id: int):
         data = {
             "name": form.get("name"),
             "abbreviation": form.get("abbreviation"),
-            "has_explanation": form.get("has_explanation") == "1",
             "explanation": form.get("explanation"),
+            "sort_order": form.get("sort_order") or 0,
         }
         upload = form.get("image")
         if upload and getattr(upload, "filename", None):
@@ -485,6 +540,325 @@ def work_types_delete(request: Request, work_type_id: int):
     else:
         flash(request, "تعذر الحذف", "error")
     return RedirectResponse("/work-types", status_code=303)
+
+
+# --- Content sections (training / problems) ---
+
+def _sections_page_view(request: Request, page: str, q: str = ""):
+    if (redir := auth.require_login(request)):
+        return redir
+    meta = services.section_page_meta(page)
+    is_searching = bool((q or "").strip())
+    sections = services.list_sections(page, q)
+    return render(
+        request,
+        "sections_page.html",
+        {
+            "page_key": page,
+            "page_meta": meta,
+            "sections": sections,
+            "q": q,
+            "is_searching": is_searching,
+        },
+    )
+
+
+def _section_form_view(request: Request, page: str, section_id: Optional[int] = None):
+    if (redir := auth.require_login(request)):
+        return redir
+    meta = services.section_page_meta(page)
+    section = None
+    mode = "new"
+    if section_id is not None:
+        section = services.get_section(section_id)
+        if not _assert_section_page(section or {}, page):
+            flash(request, "القسم غير موجود", "error")
+            return RedirectResponse(meta["base_path"], status_code=303)
+        mode = "edit"
+    return render(
+        request,
+        "section_form.html",
+        {
+            "page_key": page,
+            "page_meta": meta,
+            "section": section,
+            "mode": mode,
+        },
+    )
+
+
+@app.get("/training", response_class=HTMLResponse)
+def training_page(request: Request, q: str = ""):
+    return _sections_page_view(request, "training", q)
+
+
+@app.get("/problems", response_class=HTMLResponse)
+def problems_page(request: Request, q: str = ""):
+    return _sections_page_view(request, "problems", q)
+
+
+@app.get("/training/sections/new", response_class=HTMLResponse)
+def training_section_new(request: Request):
+    return _section_form_view(request, "training")
+
+
+@app.get("/problems/sections/new", response_class=HTMLResponse)
+def problems_section_new(request: Request):
+    return _section_form_view(request, "problems")
+
+
+@app.post("/training/sections/new")
+async def training_section_create(request: Request):
+    return await _section_create(request, "training")
+
+
+@app.post("/problems/sections/new")
+async def problems_section_create(request: Request):
+    return await _section_create(request, "problems")
+
+
+async def _section_create(request: Request, page: str):
+    if (redir := auth.require_login(request)):
+        return redir
+    meta = services.section_page_meta(page)
+    form = await request.form()
+    try:
+        image_path = None
+        upload = form.get("image")
+        if upload and getattr(upload, "filename", None):
+            image_path = await save_section_image(upload)
+        services.create_section(
+            page,
+            {
+                "title": form.get("title"),
+                "explanation": form.get("explanation"),
+                "image_path": image_path,
+                "sort_order": form.get("sort_order") or 0,
+            },
+            actor_id=current_user_id(request),
+        )
+        flash(request, "تم إضافة القسم")
+        return RedirectResponse(meta["base_path"], status_code=303)
+    except ValueError as e:
+        flash(request, _section_form_error(e), "error")
+        return RedirectResponse(f"{meta['base_path']}/sections/new", status_code=303)
+
+
+@app.get("/training/sections/{section_id}/edit", response_class=HTMLResponse)
+def training_section_edit(request: Request, section_id: int):
+    return _section_form_view(request, "training", section_id)
+
+
+@app.get("/problems/sections/{section_id}/edit", response_class=HTMLResponse)
+def problems_section_edit(request: Request, section_id: int):
+    return _section_form_view(request, "problems", section_id)
+
+
+@app.post("/training/sections/{section_id}/edit")
+async def training_section_update(request: Request, section_id: int):
+    return await _section_update(request, "training", section_id)
+
+
+@app.post("/problems/sections/{section_id}/edit")
+async def problems_section_update(request: Request, section_id: int):
+    return await _section_update(request, "problems", section_id)
+
+
+async def _section_update(request: Request, page: str, section_id: int):
+    if (redir := auth.require_login(request)):
+        return redir
+    meta = services.section_page_meta(page)
+    existing = services.get_section(section_id)
+    if not _assert_section_page(existing or {}, page):
+        flash(request, "القسم غير موجود", "error")
+        return RedirectResponse(meta["base_path"], status_code=303)
+    form = await request.form()
+    try:
+        data = {
+            "title": form.get("title"),
+            "explanation": form.get("explanation"),
+            "sort_order": form.get("sort_order") or 0,
+        }
+        upload = form.get("image")
+        if upload and getattr(upload, "filename", None):
+            data["image_path"] = await save_section_image(upload)
+        if form.get("clear_image") == "1":
+            data["image_path"] = None
+        services.update_section(section_id, data, actor_id=current_user_id(request))
+        flash(request, "تم التعديل")
+        return RedirectResponse(meta["base_path"], status_code=303)
+    except ValueError as e:
+        flash(request, _section_form_error(e), "error")
+        return RedirectResponse(
+            f"{meta['base_path']}/sections/{section_id}/edit", status_code=303
+        )
+
+
+@app.post("/training/sections/{section_id}/delete")
+def training_section_delete(request: Request, section_id: int):
+    return _section_delete(request, "training", section_id)
+
+
+@app.post("/problems/sections/{section_id}/delete")
+def problems_section_delete(request: Request, section_id: int):
+    return _section_delete(request, "problems", section_id)
+
+
+def _section_delete(request: Request, page: str, section_id: int):
+    if (redir := auth.require_login(request)):
+        return redir
+    meta = services.section_page_meta(page)
+    existing = services.get_section(section_id)
+    if not _assert_section_page(existing or {}, page):
+        flash(request, "القسم غير موجود", "error")
+        return RedirectResponse(meta["base_path"], status_code=303)
+    if services.soft_delete_section(section_id, current_user_id(request) or 0):
+        flash(request, "تم النقل إلى سلة المحذوفات")
+    else:
+        flash(request, "تعذر الحذف", "error")
+    return RedirectResponse(meta["base_path"], status_code=303)
+
+
+# --- Tasks ---
+
+def _task_form_error(exc: Exception) -> str:
+    return {
+        "required": "عنوان المهمة مطلوب",
+        "not_found": "المهمة غير موجودة",
+        "invalid_image": "صيغة الصورة غير مدعومة",
+        "image_too_large": "حجم الصورة كبير جداً",
+        "invalid_assignee": "المهندس المختار غير صالح",
+    }.get(str(exc), "تعذر الحفظ")
+
+
+def _engineers_for_task_form(task: Optional[dict] = None) -> list[dict]:
+    engineers = services.list_users(active_only=True)
+    if not task or not task.get("assigned_user_id"):
+        return engineers
+    assigned_id = int(task["assigned_user_id"])
+    if any(int(u["id"]) == assigned_id for u in engineers):
+        return engineers
+    current = services.get_user_record(assigned_id)
+    if current and not current.get("deleted_at"):
+        return [current] + engineers
+    return engineers
+
+
+@app.get("/tasks", response_class=HTMLResponse)
+def tasks_list(request: Request, q: str = ""):
+    if (redir := auth.require_login(request)):
+        return redir
+    is_searching = bool((q or "").strip())
+    return render(
+        request,
+        "tasks_page.html",
+        {
+            "tasks": services.list_tasks(q),
+            "q": q,
+            "is_searching": is_searching,
+        },
+    )
+
+
+@app.get("/tasks/new", response_class=HTMLResponse)
+def tasks_new(request: Request):
+    if (redir := auth.require_login(request)):
+        return redir
+    return render(
+        request,
+        "task_form.html",
+        {
+            "task": None,
+            "mode": "new",
+            "engineers": _engineers_for_task_form(),
+        },
+    )
+
+
+@app.post("/tasks/new")
+async def tasks_create(request: Request):
+    if (redir := auth.require_login(request)):
+        return redir
+    form = await request.form()
+    try:
+        image_path = None
+        upload = form.get("image")
+        if upload and getattr(upload, "filename", None):
+            image_path = await save_task_image(upload)
+        services.create_task(
+            {
+                "title": form.get("title"),
+                "explanation": form.get("explanation"),
+                "image_path": image_path,
+                "sort_order": form.get("sort_order") or 0,
+                "assigned_user_id": form.get("assigned_user_id"),
+            },
+            actor_id=current_user_id(request),
+        )
+        flash(request, "تم إضافة المهمة")
+        return RedirectResponse("/tasks", status_code=303)
+    except ValueError as e:
+        flash(request, _task_form_error(e), "error")
+        return RedirectResponse("/tasks/new", status_code=303)
+
+
+@app.get("/tasks/{task_id}/edit", response_class=HTMLResponse)
+def tasks_edit(request: Request, task_id: int):
+    if (redir := auth.require_login(request)):
+        return redir
+    task = services.get_task(task_id)
+    if not task or task.get("deleted_at"):
+        flash(request, "المهمة غير موجودة", "error")
+        return RedirectResponse("/tasks", status_code=303)
+    return render(
+        request,
+        "task_form.html",
+        {
+            "task": task,
+            "mode": "edit",
+            "engineers": _engineers_for_task_form(task),
+        },
+    )
+
+
+@app.post("/tasks/{task_id}/edit")
+async def tasks_update(request: Request, task_id: int):
+    if (redir := auth.require_login(request)):
+        return redir
+    existing = services.get_task(task_id)
+    if not existing or existing.get("deleted_at"):
+        flash(request, "المهمة غير موجودة", "error")
+        return RedirectResponse("/tasks", status_code=303)
+    form = await request.form()
+    try:
+        data = {
+            "title": form.get("title"),
+            "explanation": form.get("explanation"),
+            "sort_order": form.get("sort_order") or 0,
+            "assigned_user_id": form.get("assigned_user_id"),
+        }
+        upload = form.get("image")
+        if upload and getattr(upload, "filename", None):
+            data["image_path"] = await save_task_image(upload)
+        if form.get("clear_image") == "1":
+            data["image_path"] = None
+        services.update_task(task_id, data, actor_id=current_user_id(request))
+        flash(request, "تم التعديل")
+        return RedirectResponse("/tasks", status_code=303)
+    except ValueError as e:
+        flash(request, _task_form_error(e), "error")
+        return RedirectResponse(f"/tasks/{task_id}/edit", status_code=303)
+
+
+@app.post("/tasks/{task_id}/delete")
+def tasks_delete(request: Request, task_id: int):
+    if (redir := auth.require_login(request)):
+        return redir
+    if services.soft_delete_task(task_id, current_user_id(request) or 0):
+        flash(request, "تم النقل إلى سلة المحذوفات")
+    else:
+        flash(request, "تعذر الحذف", "error")
+    return RedirectResponse("/tasks", status_code=303)
 
 
 # --- Packages ---
