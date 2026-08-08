@@ -35,9 +35,11 @@ python - <<'PY'
 from app.main import app, ACTIVITY_BUILD
 paths = {getattr(r, "path", None) for r in app.routes}
 print("BUILD", ACTIVITY_BUILD)
-for p in ("/activity", "/activity/clear", "/health"):
+needed = ("/training", "/problems", "/tasks", "/work-types", "/health")
+for p in needed:
     print(p, "OK" if p in paths else "MISSING")
-if "/health" not in paths or "/activity" not in paths:
+missing = [p for p in needed if p not in paths]
+if missing:
     raise SystemExit(2)
 PY
 

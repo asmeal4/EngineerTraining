@@ -1005,7 +1005,7 @@ def trash_purge(request: Request, entity: str, item_id: int):
 
 # --- Activity ---
 
-ACTIVITY_BUILD = "activity-clear-v4"
+ACTIVITY_BUILD = "sections-tasks-v1"
 
 
 @app.get("/activity", response_class=HTMLResponse)
@@ -1073,12 +1073,19 @@ async def activity_actions(request: Request):
 
 @app.get("/health")
 def health():
+    paths = {getattr(r, "path", None) for r in app.routes}
     return JSONResponse(
         {
             "ok": True,
             "app": "EngineerTraining",
             "activity_clear": True,
             "build": ACTIVITY_BUILD,
+            "routes": {
+                "training": "/training" in paths,
+                "problems": "/problems" in paths,
+                "tasks": "/tasks" in paths,
+                "work_types": "/work-types" in paths,
+            },
         }
     )
 

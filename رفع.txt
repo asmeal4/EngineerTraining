@@ -1,0 +1,9 @@
+cd ~/EngineerTraining
+git fetch origin
+git reset --hard origin/master
+find ~/EngineerTraining -type d -name '__pycache__' -print0 2>/dev/null | xargs -0 rm -rf
+find ~/EngineerTraining -type f -name '*.pyc' -delete 2>/dev/null || true
+pa website reload --domain bayansoft.pythonanywhere.com
+sleep 3
+curl -s https://bayansoft.pythonanywhere.com/health
+# يجب أن يظهر: "build":"sections-tasks-v1" وأن يكون problems و training و tasks = true
