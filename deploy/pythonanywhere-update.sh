@@ -56,4 +56,4 @@ pa website get --domain "$DOMAIN" || true
 echo
 echo "DONE. Wait 5 seconds then open:"
 echo "  https://$DOMAIN/health"
-echo "Expect: build activity-clear-v3"
+echo "Expect: build sections-tasks-v1 and routes.problems=true"
