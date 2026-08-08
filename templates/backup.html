@@ -4,27 +4,43 @@
 <section class="page-head">
   <div>
     <h1>نسخة احتياطية</h1>
-    <p>تنزيل قاعدة البيانات والصور أو استرجاع نسخة سابقة</p>
+    <p>تنزيل أو استرجاع قاعدة البيانات والصور بشكل منفصل</p>
   </div>
 </section>
 
 <div class="panel" style="margin-bottom:18px">
   <h2 style="margin-top:0;font-size:1.1rem">تنزيل نسخة احتياطية</h2>
-  <p style="color:var(--muted)">سيتم تنزيل ملف ZIP يحتوي قاعدة البيانات وصور أنواع العمل.</p>
-  <a class="btn" href="/backup/download">تنزيل النسخة الاحتياطية</a>
+  <p style="color:var(--muted)">اختر ما تريد تنزيله: قاعدة البيانات أو صور أنواع العمل.</p>
+  <div style="display:flex;flex-wrap:wrap;gap:10px">
+    <a class="btn" href="/backup/download/db">تنزيل قاعدة البيانات</a>
+    <a class="btn secondary" href="/backup/download/images">تنزيل الصور</a>
+  </div>
 </div>
 
 {% if is_admin %}
-<div class="panel">
-  <h2 style="margin-top:0;font-size:1.1rem">استرجاع نسخة احتياطية</h2>
-  <p style="color:var(--muted)">خاص بالمدير فقط. سيتم أخذ نسخة تلقائية قبل الاسترجاع. يدعم ملفات ZIP الجديدة وملفات .db القديمة.</p>
-  <form method="post" action="/backup/restore" enctype="multipart/form-data"
-    onsubmit="return confirm('استرجاع النسخة سيستبدل البيانات الحالية. هل أنت متأكد؟');">
+<div class="panel" style="margin-bottom:18px">
+  <h2 style="margin-top:0;font-size:1.1rem">استرجاع قاعدة البيانات</h2>
+  <p style="color:var(--muted)">خاص بالمدير فقط. يستبدل البيانات الحالية فقط دون لمس الصور. يدعم ملفات .db ونسخ ZIP القديمة المدمجة.</p>
+  <form method="post" action="/backup/restore/db" enctype="multipart/form-data"
+    onsubmit="return confirm('استرجاع قاعدة البيانات سيستبدل البيانات الحالية. هل أنت متأكد؟');">
     <div class="field" style="margin-bottom:14px">
-      <label for="backup_file">ملف النسخة (.zip أو .db)</label>
-      <input id="backup_file" type="file" name="backup_file" accept=".zip,.db" required>
+      <label for="db_backup_file">ملف قاعدة البيانات (.db أو .zip)</label>
+      <input id="db_backup_file" type="file" name="backup_file" accept=".db,.zip" required>
     </div>
-    <button class="btn danger" type="submit">استرجاع النسخة</button>
+    <button class="btn danger" type="submit">استرجاع قاعدة البيانات</button>
+  </form>
+</div>
+
+<div class="panel">
+  <h2 style="margin-top:0;font-size:1.1rem">استرجاع الصور</h2>
+  <p style="color:var(--muted)">خاص بالمدير فقط. يستبدل مجلد الصور الحالي فقط دون لمس قاعدة البيانات.</p>
+  <form method="post" action="/backup/restore/images" enctype="multipart/form-data"
+    onsubmit="return confirm('استرجاع الصور سيستبدل الصور الحالية. هل أنت متأكد؟');">
+    <div class="field" style="margin-bottom:14px">
+      <label for="images_backup_file">ملف الصور (.zip)</label>
+      <input id="images_backup_file" type="file" name="backup_file" accept=".zip" required>
+    </div>
+    <button class="btn danger" type="submit">استرجاع الصور</button>
   </form>
 </div>
 {% else %}

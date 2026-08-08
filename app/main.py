@@ -718,11 +718,24 @@ def backup_page(request: Request):
     return render(request, "backup.html")
 
 
-@app.get("/backup/download")
-def backup_download(request: Request, background_tasks: BackgroundTasks):
+@app.get("/backup/download/db")
+def backup_download_db(request: Request, background_tasks: BackgroundTasks):
     if (redir := auth.require_login(request)):
         return redir
-    path, filename = backup.create_backup_file()
+    path, filename = backup.create_database_backup()
+    background_tasks.add_task(lambda p=path: p.unlink(missing_ok=True))
+    return FileResponse(
+        path,
+        filename=filename,
+        media_type="application/octet-stream",
+    )
+
+
+@app.get("/backup/download/images")
+def backup_download_images(request: Request, background_tasks: BackgroundTasks):
+    if (redir := auth.require_login(request)):
+        return redir
+    path, filename = backup.create_images_backup()
     background_tasks.add_task(lambda p=path: p.unlink(missing_ok=True))
     return FileResponse(
         path,
@@ -731,8 +744,8 @@ def backup_download(request: Request, background_tasks: BackgroundTasks):
     )
 
 
-@app.post("/backup/restore")
-async def backup_restore(request: Request, backup_file: UploadFile = File(...)):
+@app.post("/backup/restore/db")
+async def backup_restore_db(request: Request, backup_file: UploadFile = File(...)):
     if (redir := auth.require_admin(request)):
         return redir
     import tempfile
@@ -750,18 +763,51 @@ async def backup_restore(request: Request, backup_file: UploadFile = File(...)):
             flash(request, "الملف فارغ أو لم يُرفع بشكل صحيح", "error")
             return RedirectResponse("/backup", status_code=303)
         temp_path.write_bytes(content)
-        backup.restore_database(temp_path)
-        flash(request, "تم استرجاع النسخة الاحتياطية بنجاح")
+        backup.restore_database_only(temp_path)
+        flash(request, "تم استرجاع قاعدة البيانات بنجاح")
     except ValueError as e:
         msg = {
             "file_too_large": "الملف كبير جداً (الحد 100 ميجابايت)",
-            "invalid_database": "ملف نسخة احتياطية غير صالح",
-            "uploads_restore_failed": "تم استرجاع قاعدة البيانات لكن تعذر استرجاع الصور",
-        }.get(str(e), "تعذر الاسترجاع")
+            "invalid_database": "ملف قاعدة بيانات غير صالح",
+        }.get(str(e), "تعذر استرجاع قاعدة البيانات")
         flash(request, msg, "error")
     except Exception as e:
-        logging.getLogger(__name__).exception("backup restore failed")
-        flash(request, f"تعذر استرجاع النسخة الاحتياطية: {type(e).__name__}", "error")
+        logging.getLogger(__name__).exception("database restore failed")
+        flash(request, f"تعذر استرجاع قاعدة البيانات: {type(e).__name__}", "error")
+    finally:
+        temp_path.unlink(missing_ok=True)
+    return RedirectResponse("/backup", status_code=303)
+
+
+@app.post("/backup/restore/images")
+async def backup_restore_images(request: Request, backup_file: UploadFile = File(...)):
+    if (redir := auth.require_admin(request)):
+        return redir
+    import tempfile
+    import os
+    import logging
+
+    fd, temp_name = tempfile.mkstemp(suffix=".zip")
+    os.close(fd)
+    temp_path = Path(temp_name)
+    try:
+        content = await backup_file.read()
+        if not content:
+            flash(request, "الملف فارغ أو لم يُرفع بشكل صحيح", "error")
+            return RedirectResponse("/backup", status_code=303)
+        temp_path.write_bytes(content)
+        backup.restore_images_only(temp_path)
+        flash(request, "تم استرجاع الصور بنجاح")
+    except ValueError as e:
+        msg = {
+            "file_too_large": "الملف كبير جداً (الحد 100 ميجابايت)",
+            "invalid_images": "ملف صور غير صالح",
+            "uploads_restore_failed": "تعذر استرجاع الصور",
+        }.get(str(e), "تعذر استرجاع الصور")
+        flash(request, msg, "error")
+    except Exception as e:
+        logging.getLogger(__name__).exception("images restore failed")
+        flash(request, f"تعذر استرجاع الصور: {type(e).__name__}", "error")
     finally:
         temp_path.unlink(missing_ok=True)
     return RedirectResponse("/backup", status_code=303)

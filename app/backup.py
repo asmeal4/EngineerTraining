@@ -47,22 +47,30 @@ def verify_sqlite_file(path: Path) -> None:
         conn.close()
 
 
-def create_backup_file() -> tuple[Path, str]:
-    """Create a ZIP with the database and uploads folder for download."""
+def create_database_backup() -> tuple[Path, str]:
+    """Create a SQLite .db backup file for download."""
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    download_name = f"engineer_training_backup_{ts}.zip"
-    fd, name = tempfile.mkstemp(prefix=f"backup_{ts}_", suffix=".zip")
+    download_name = f"engineer_training_db_{ts}.db"
+    fd, name = tempfile.mkstemp(prefix=f"backup_db_{ts}_", suffix=".db")
     os.close(fd)
     dest = Path(name)
-    db_tmp: Optional[Path] = None
     try:
-        db_fd, db_name = tempfile.mkstemp(prefix=f"backup_db_{ts}_", suffix=".db")
-        os.close(db_fd)
-        db_tmp = Path(db_name)
-        _backup_connection(DATABASE_PATH, db_tmp)
+        _backup_connection(DATABASE_PATH, dest)
+    except Exception:
+        dest.unlink(missing_ok=True)
+        raise
+    return dest, download_name
 
+
+def create_images_backup() -> tuple[Path, str]:
+    """Create a ZIP of the uploads folder for download."""
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    download_name = f"engineer_training_images_{ts}.zip"
+    fd, name = tempfile.mkstemp(prefix=f"backup_images_{ts}_", suffix=".zip")
+    os.close(fd)
+    dest = Path(name)
+    try:
         with zipfile.ZipFile(dest, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-            zf.write(db_tmp, arcname=DB_MEMBER_NAME)
             if UPLOADS_DIR.exists():
                 for path in UPLOADS_DIR.rglob("*"):
                     if path.is_file():
@@ -71,9 +79,6 @@ def create_backup_file() -> tuple[Path, str]:
     except Exception:
         dest.unlink(missing_ok=True)
         raise
-    finally:
-        if db_tmp is not None:
-            db_tmp.unlink(missing_ok=True)
     return dest, download_name
 
 
@@ -115,10 +120,25 @@ def _find_db_in_extract(extract_dir: Path) -> Optional[Path]:
     root_dbs = [p for p in extract_dir.glob("*.db") if p.is_file()]
     if len(root_dbs) == 1:
         return root_dbs[0]
-    # Nested single .db (some zip tools wrap in a folder)
     nested = [p for p in extract_dir.rglob("*.db") if p.is_file()]
     if len(nested) == 1:
         return nested[0]
+    return None
+
+
+def _find_uploads_in_extract(extract_dir: Path) -> Optional[Path]:
+    uploads_src = extract_dir / "uploads"
+    if uploads_src.is_dir():
+        return uploads_src
+    nested = list(extract_dir.glob("*/uploads"))
+    if len(nested) == 1 and nested[0].is_dir():
+        return nested[0]
+    # Images ZIP may contain files at root (work_types/...) without uploads/ prefix
+    if any(extract_dir.iterdir()):
+        has_db = any(p.suffix.lower() == ".db" for p in extract_dir.rglob("*") if p.is_file())
+        has_files = any(p.is_file() for p in extract_dir.rglob("*"))
+        if has_files and not has_db:
+            return extract_dir
     return None
 
 
@@ -131,8 +151,20 @@ def _is_zip_backup(path: Path) -> bool:
         return False
 
 
-def restore_database(upload_path: Path) -> Path:
-    """Restore from .zip (db + uploads) or legacy .db file."""
+def _safe_extract_zip(upload_path: Path, extract_dir: Path) -> None:
+    try:
+        with zipfile.ZipFile(upload_path, "r") as zf:
+            for info in zf.infolist():
+                name = info.filename.replace("\\", "/")
+                if name.startswith("/") or ".." in name.split("/"):
+                    raise ValueError("invalid_database")
+            zf.extractall(extract_dir)
+    except zipfile.BadZipFile as exc:
+        raise ValueError("invalid_database") from exc
+
+
+def restore_database_only(upload_path: Path) -> Path:
+    """Restore database only from .db or legacy combined ZIP (ignores images)."""
     if upload_path.stat().st_size > MAX_UPLOAD_BYTES:
         raise ValueError("file_too_large")
 
@@ -141,38 +173,14 @@ def restore_database(upload_path: Path) -> Path:
     shutil.copy2(DATABASE_PATH, pre_restore)
 
     if _is_zip_backup(upload_path):
-        extract_dir = Path(tempfile.mkdtemp(prefix=f"restore_{ts}_"))
+        extract_dir = Path(tempfile.mkdtemp(prefix=f"restore_db_{ts}_"))
         try:
-            try:
-                with zipfile.ZipFile(upload_path, "r") as zf:
-                    for info in zf.infolist():
-                        name = info.filename.replace("\\", "/")
-                        if name.startswith("/") or ".." in name.split("/"):
-                            raise ValueError("invalid_database")
-                    zf.extractall(extract_dir)
-            except zipfile.BadZipFile as exc:
-                raise ValueError("invalid_database") from exc
-
+            _safe_extract_zip(upload_path, extract_dir)
             db_file = _find_db_in_extract(extract_dir)
             if db_file is None:
                 raise ValueError("invalid_database")
-
             verify_sqlite_file(db_file)
             _backup_connection(db_file, DATABASE_PATH)
-
-            uploads_src = extract_dir / "uploads"
-            if not uploads_src.is_dir():
-                # Support zips that nest everything under one top folder
-                nested = list(extract_dir.glob("*/uploads"))
-                if len(nested) == 1 and nested[0].is_dir():
-                    uploads_src = nested[0]
-            if uploads_src.is_dir():
-                try:
-                    _restore_uploads_from_dir(uploads_src)
-                except OSError as exc:
-                    # DB already restored; keep going but surface as partial
-                    logger.exception("uploads restore failed: %s", exc)
-                    raise ValueError("uploads_restore_failed") from exc
         finally:
             shutil.rmtree(extract_dir, ignore_errors=True)
     else:
@@ -180,3 +188,35 @@ def restore_database(upload_path: Path) -> Path:
         _backup_connection(upload_path, DATABASE_PATH)
 
     return pre_restore
+
+
+def restore_images_only(upload_path: Path) -> None:
+    """Restore uploads from an images ZIP or legacy combined ZIP (images only)."""
+    if upload_path.stat().st_size > MAX_UPLOAD_BYTES:
+        raise ValueError("file_too_large")
+    if not _is_zip_backup(upload_path):
+        raise ValueError("invalid_images")
+
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    extract_dir = Path(tempfile.mkdtemp(prefix=f"restore_images_{ts}_"))
+    try:
+        try:
+            with zipfile.ZipFile(upload_path, "r") as zf:
+                for info in zf.infolist():
+                    name = info.filename.replace("\\", "/")
+                    if name.startswith("/") or ".." in name.split("/"):
+                        raise ValueError("invalid_images")
+                zf.extractall(extract_dir)
+        except zipfile.BadZipFile as exc:
+            raise ValueError("invalid_images") from exc
+
+        uploads_src = _find_uploads_in_extract(extract_dir)
+        if uploads_src is None:
+            raise ValueError("invalid_images")
+        try:
+            _restore_uploads_from_dir(uploads_src)
+        except OSError as exc:
+            logger.exception("uploads restore failed: %s", exc)
+            raise ValueError("uploads_restore_failed") from exc
+    finally:
+        shutil.rmtree(extract_dir, ignore_errors=True)
