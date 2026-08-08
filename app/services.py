@@ -367,7 +367,8 @@ def dashboard_stats(user: Optional[dict] = None) -> dict:
             task_count = conn.execute(
                 f"""
                 SELECT COUNT(*) AS c FROM tasks
-                WHERE assigned_user_id = ? AND {NOT_DELETED}
+                WHERE (assigned_user_id IS NULL OR assigned_user_id = ?)
+                  AND {NOT_DELETED}
                 """,
                 (user_id,),
             ).fetchone()["c"]
@@ -1339,7 +1340,7 @@ def list_tasks(q: str = "", user: Optional[dict] = None) -> list[dict]:
     clauses = ["(t.deleted_at IS NULL OR t.deleted_at = '')"]
     params: list[Any] = []
     if user and user.get("role") != "admin" and user.get("id") is not None:
-        clauses.append("t.assigned_user_id = ?")
+        clauses.append("(t.assigned_user_id IS NULL OR t.assigned_user_id = ?)")
         params.append(int(user["id"]))
     where = " AND ".join(clauses)
     with db_session() as conn:

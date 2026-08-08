@@ -25,7 +25,7 @@
       <div class="field">
         <label for="assigned_user_id">المهندس</label>
         <select id="assigned_user_id" name="assigned_user_id">
-          <option value="">— بدون تعيين —</option>
+          <option value="">الكل</option>
           {% for eng in engineers %}
           <option value="{{ eng.id }}"
             {% if task and task.assigned_user_id and task.assigned_user_id == eng.id %}selected{% endif %}>

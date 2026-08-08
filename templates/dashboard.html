@@ -70,7 +70,7 @@
           <td>{{ task.sort_order }}</td>
           <td><strong>{{ task.title }}</strong></td>
           {% if not stats.tasks_for_self %}
-          <td>{{ task.assigned_user_name or '—' }}</td>
+          <td>{{ task.assigned_user_name or 'الكل' }}</td>
           {% endif %}
           <td>
             <a class="btn ghost small" href="/tasks/{{ task.id }}/edit">تعديل</a>
