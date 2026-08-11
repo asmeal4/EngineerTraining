@@ -1078,6 +1078,13 @@ tr:hover td { background: rgba(15, 92, 76, 0.03); }
   margin-bottom: 6px;
   font-size: 0.88rem;
 }
+.pkg-work-edit {
+  margin-inline-start: auto;
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
 .work-type-explanation {
   white-space: pre-wrap;
   line-height: 1.5;

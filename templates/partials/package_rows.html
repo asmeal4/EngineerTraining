@@ -53,6 +53,7 @@
         <div class="work-type-detail-head">
           <strong>{{ w.name }}</strong>
           {% if w.abbreviation %}<span class="badge brand pkg-chip">{{ w.abbreviation }}</span>{% endif %}
+          <a class="btn ghost small pkg-work-edit" href="/work-types/{{ w.id }}/edit">تعديل</a>
         </div>
         {% if w.has_explanation and (w.explanation or w.image_path) %}
           {% if w.explanation %}
@@ -65,6 +66,53 @@
           {% endif %}
         {% else %}
         <p class="pkg-empty" style="margin:4px 0 0">لا يوجد شرح أو صورة لهذا النوع</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </td>
+</tr>
+<tr class="package-work-types-row">
+  <td colspan="5">
+    <div class="pkg-work-line">
+      <span class="pkg-work-label">أكثر المشكلات</span>
+      {% if p.problems %}
+      <div class="package-work-badges">
+        {% for pr in p.problems %}
+        <button type="button"
+          class="badge active pkg-work-btn"
+          data-problem-toggle
+          data-package-id="{{ pkg_key }}"
+          data-problem-id="{{ pr.id }}"
+          aria-expanded="false">
+          {{ pr.title }}
+        </button>
+        {% endfor %}
+      </div>
+      {% else %}
+      <span class="pkg-empty">لا توجد مشكلات</span>
+      {% endif %}
+    </div>
+    {% if p.problems %}
+    <div class="work-type-detail pkg-work-detail" data-package-problem-detail="{{ pkg_key }}" hidden>
+      {% for pr in p.problems %}
+      <div class="work-type-detail-item" data-problem-detail="{{ pr.id }}" hidden>
+        <div class="work-type-detail-head">
+          <strong>{{ pr.title }}</strong>
+          <a class="btn ghost small pkg-work-edit" href="/problems/sections/{{ pr.id }}/edit">تعديل</a>
+        </div>
+        {% if pr.explanation or pr.image_path %}
+          {% if pr.explanation %}
+          <div class="work-type-explanation">{{ pr.explanation }}</div>
+          {% endif %}
+          {% if pr.image_path %}
+          <div class="work-type-image">
+            <img src="/uploads/{{ pr.image_path }}" alt="{{ pr.title }}">
+          </div>
+          {% endif %}
+        {% else %}
+        <p class="pkg-empty" style="margin:4px 0 0">لا يوجد شرح أو صورة لهذه المشكلة</p>
         {% endif %}
       </div>
       {% endfor %}

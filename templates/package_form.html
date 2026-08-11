@@ -38,6 +38,16 @@
         ) }}
       </div>
       <div class="field full">
+        {{ multi_picker(
+          all_problems,
+          package.problem_ids if package else [],
+          field_name='problem_ids',
+          label='أكثر المشكلات',
+          placeholder='اختر مشكلة أو أكثر',
+          summary_id='selected-problems'
+        ) }}
+      </div>
+      <div class="field full">
         <label for="notes">ملاحظة</label>
         <textarea id="notes" name="notes">{{ package.notes if package and package.notes else '' }}</textarea>
       </div>
@@ -47,10 +57,10 @@
       <div class="linked-section-head">
         <div>
           <h2 class="section-title">العناصر المختارة</h2>
-          <p class="section-sub">الأنظمة وأنواع العمل المرتبطة بهذه الباقة</p>
+          <p class="section-sub">الأنظمة وأنواع العمل والمشكلات المرتبطة بهذه الباقة</p>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
         <div>
           <div class="linked-branches-label">الأنظمة</div>
           <ul class="linked-list" id="selected-systems">
@@ -61,6 +71,12 @@
           <div class="linked-branches-label">أنواع العمل</div>
           <ul class="linked-list" id="selected-work-types">
             <li class="empty compact" data-empty>لم يُختر أي نوع عمل</li>
+          </ul>
+        </div>
+        <div>
+          <div class="linked-branches-label">أكثر المشكلات</div>
+          <ul class="linked-list" id="selected-problems">
+            <li class="empty compact" data-empty>لم يُختر أي مشكلة</li>
           </ul>
         </div>
       </div>

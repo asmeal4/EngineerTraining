@@ -10,11 +10,14 @@
   <div class="system-multi-panel" hidden>
     {% if item_list %}
     {% for s in item_list %}
+    {% set item_label = s.name or s.title %}
+    {% set item_abbr = s.abbreviation if s.abbreviation is defined and s.abbreviation else none %}
+    {% set display_label = (item_label ~ ' (' ~ item_abbr ~ ')') if item_abbr else item_label %}
     <label class="system-multi-option">
       <input type="checkbox" name="{{ field_name }}" value="{{ s.id }}"
-        data-label="{{ s.name }} ({{ s.abbreviation }})"
+        data-label="{{ display_label }}"
         {% if s.id in selected_ids or (s.id|string) in selected_ids %}checked{% endif %}>
-      <span>{{ s.name }} ({{ s.abbreviation }})</span>
+      <span>{{ display_label }}</span>
     </label>
     {% endfor %}
     {% else %}

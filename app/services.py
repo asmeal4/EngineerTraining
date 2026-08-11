@@ -405,9 +405,10 @@ def dashboard_stats(user: Optional[dict] = None) -> dict:
         top_packages = []
         for row in top_rows:
             item = dict(row)
-            systems, work_types = _package_links(conn, item["id"])
+            systems, work_types, problems = _package_links(conn, item["id"])
             item["systems"] = systems
             item["work_types"] = work_types
+            item["problems"] = problems
             top_packages.append(item)
 
     return {
@@ -1307,6 +1308,9 @@ def purge_section(section_id: int, actor_id: int) -> bool:
             return False
         image_path = row["image_path"]
         meta = section_page_meta(row["page"])
+        conn.execute(
+            "DELETE FROM package_problems WHERE section_id = ?", (section_id,)
+        )
         conn.execute("DELETE FROM content_sections WHERE id = ?", (section_id,))
         log_activity(
             conn,
@@ -1573,7 +1577,9 @@ def purge_task(task_id: int, actor_id: int) -> bool:
 # Packages
 # ---------------------------------------------------------------------------
 
-def _package_links(conn, package_id: int) -> tuple[list[dict], list[dict]]:
+def _package_links(
+    conn, package_id: int
+) -> tuple[list[dict], list[dict], list[dict]]:
     systems = conn.execute(
         """
         SELECT s.id, s.name, s.abbreviation
@@ -1595,7 +1601,23 @@ def _package_links(conn, package_id: int) -> tuple[list[dict], list[dict]]:
         """,
         (package_id,),
     ).fetchall()
-    return [dict(r) for r in systems], [dict(r) for r in work_types]
+    problems = conn.execute(
+        """
+        SELECT c.id, c.title, c.explanation, c.image_path
+        FROM package_problems pp
+        JOIN content_sections c ON c.id = pp.section_id
+        WHERE pp.package_id = ?
+          AND c.page = 'problems'
+          AND (c.deleted_at IS NULL OR c.deleted_at = '')
+        ORDER BY c.sort_order, c.id
+        """,
+        (package_id,),
+    ).fetchall()
+    return (
+        [dict(r) for r in systems],
+        [dict(r) for r in work_types],
+        [dict(r) for r in problems],
+    )
 
 
 def list_packages(q: str = "") -> list[dict]:
@@ -1626,11 +1648,13 @@ def list_packages(q: str = "") -> list[dict]:
         result = []
         for row in rows:
             item = dict(row)
-            systems, work_types = _package_links(conn, item["id"])
+            systems, work_types, problems = _package_links(conn, item["id"])
             item["systems"] = systems
             item["work_types"] = work_types
+            item["problems"] = problems
             item["system_ids"] = [s["id"] for s in systems]
             item["work_type_ids"] = [w["id"] for w in work_types]
+            item["problem_ids"] = [p["id"] for p in problems]
             result.append(item)
     return result
 
@@ -1652,22 +1676,31 @@ def get_package(package_id: int) -> Optional[dict]:
         if not row:
             return None
         item = dict(row)
-        systems, work_types = _package_links(conn, package_id)
+        systems, work_types, problems = _package_links(conn, package_id)
         item["systems"] = systems
         item["work_types"] = work_types
+        item["problems"] = problems
         item["system_ids"] = [s["id"] for s in systems]
         item["work_type_ids"] = [w["id"] for w in work_types]
+        item["problem_ids"] = [p["id"] for p in problems]
         return item
 
 
 def _set_package_links(
-    conn, package_id: int, system_ids: list[int], work_type_ids: list[int]
+    conn,
+    package_id: int,
+    system_ids: list[int],
+    work_type_ids: list[int],
+    problem_ids: list[int],
 ) -> None:
     conn.execute(
         "DELETE FROM package_systems WHERE package_id = ?", (package_id,)
     )
     conn.execute(
         "DELETE FROM package_work_types WHERE package_id = ?", (package_id,)
+    )
+    conn.execute(
+        "DELETE FROM package_problems WHERE package_id = ?", (package_id,)
     )
     for sid in system_ids:
         conn.execute(
@@ -1680,12 +1713,19 @@ def _set_package_links(
             "VALUES (?, ?)",
             (package_id, wid),
         )
+    for pid in problem_ids:
+        conn.execute(
+            "INSERT INTO package_problems (package_id, section_id) "
+            "VALUES (?, ?)",
+            (package_id, pid),
+        )
 
 
 def create_package(
     data: dict,
     system_ids: list[int],
     work_type_ids: list[int],
+    problem_ids: list[int],
     actor_id: Optional[int] = None,
 ) -> int:
     name = (data.get("name") or "").strip()
@@ -1702,7 +1742,7 @@ def create_package(
             (name, notes, now_iso(), now_iso(), actor_id, actor_id),
         )
         pid = int(cur.lastrowid)
-        _set_package_links(conn, pid, system_ids, work_type_ids)
+        _set_package_links(conn, pid, system_ids, work_type_ids, problem_ids)
         log_activity(
             conn,
             user_id=actor_id,
@@ -1719,6 +1759,7 @@ def update_package(
     data: dict,
     system_ids: list[int],
     work_type_ids: list[int],
+    problem_ids: list[int],
     actor_id: Optional[int] = None,
 ) -> None:
     name = (data.get("name") or "").strip()
@@ -1734,7 +1775,9 @@ def update_package(
             """,
             (name, notes, now_iso(), actor_id, package_id),
         )
-        _set_package_links(conn, package_id, system_ids, work_type_ids)
+        _set_package_links(
+            conn, package_id, system_ids, work_type_ids, problem_ids
+        )
         log_activity(
             conn,
             user_id=actor_id,
@@ -1811,6 +1854,10 @@ def purge_package(package_id: int, actor_id: int) -> bool:
         )
         conn.execute(
             "DELETE FROM package_work_types WHERE package_id = ?",
+            (package_id,),
+        )
+        conn.execute(
+            "DELETE FROM package_problems WHERE package_id = ?",
             (package_id,),
         )
         conn.execute("DELETE FROM packages WHERE id = ?", (package_id,))

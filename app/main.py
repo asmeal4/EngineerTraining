@@ -886,6 +886,7 @@ def packages_new(request: Request):
             "mode": "new",
             "all_systems": services.list_systems(),
             "all_work_types": services.list_work_types(),
+            "all_problems": services.list_sections("problems"),
         },
     )
 
@@ -900,6 +901,7 @@ async def packages_create(request: Request):
             {"name": form.get("name"), "notes": form.get("notes")},
             parse_id_list(form, "system_ids"),
             parse_id_list(form, "work_type_ids"),
+            parse_id_list(form, "problem_ids"),
             actor_id=current_user_id(request),
         )
         flash(request, "تم إضافة الباقة")
@@ -925,6 +927,7 @@ def packages_edit(request: Request, package_id: int):
             "mode": "edit",
             "all_systems": services.list_systems(),
             "all_work_types": services.list_work_types(),
+            "all_problems": services.list_sections("problems"),
         },
     )
 
@@ -940,6 +943,7 @@ async def packages_update(request: Request, package_id: int):
             {"name": form.get("name"), "notes": form.get("notes")},
             parse_id_list(form, "system_ids"),
             parse_id_list(form, "work_type_ids"),
+            parse_id_list(form, "problem_ids"),
             actor_id=current_user_id(request),
         )
         flash(request, "تم التعديل")

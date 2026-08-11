@@ -353,6 +353,50 @@
     });
   }
 
+  function initProblemToggle() {
+    document.querySelectorAll("[data-problem-toggle]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var packageId = btn.getAttribute("data-package-id");
+        var problemId = btn.getAttribute("data-problem-id");
+        var detailRow = document.querySelector(
+          '[data-package-problem-detail="' + packageId + '"]'
+        );
+        if (!detailRow) return;
+
+        var alreadyOpen =
+          btn.classList.contains("is-open") &&
+          !detailRow.hasAttribute("hidden");
+
+        document
+          .querySelectorAll(
+            '[data-problem-toggle][data-package-id="' + packageId + '"]'
+          )
+          .forEach(function (b) {
+            b.classList.remove("is-open");
+            b.setAttribute("aria-expanded", "false");
+          });
+        detailRow
+          .querySelectorAll("[data-problem-detail]")
+          .forEach(function (item) {
+            item.setAttribute("hidden", "");
+          });
+
+        if (alreadyOpen) {
+          detailRow.setAttribute("hidden", "");
+          return;
+        }
+
+        var item = detailRow.querySelector(
+          '[data-problem-detail="' + problemId + '"]'
+        );
+        if (item) item.removeAttribute("hidden");
+        detailRow.removeAttribute("hidden");
+        btn.classList.add("is-open");
+        btn.setAttribute("aria-expanded", "true");
+      });
+    });
+  }
+
   function setCardDetailsVisible(card, show) {
     if (!card) return;
     if (show) {
@@ -438,6 +482,7 @@
     initMultiPickers();
     initFloatWindows();
     initWorkTypeToggle();
+    initProblemToggle();
     initDetailsToggle();
   });
 })();
