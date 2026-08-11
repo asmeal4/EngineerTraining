@@ -1624,11 +1624,36 @@ def list_packages(q: str = "") -> list[dict]:
     clauses = [NOT_DELETED]
     params: list[Any] = []
     if q:
-        clauses.append("(p.name LIKE ? OR p.notes LIKE ?)")
         like = f"%{q.strip()}%"
-        params.extend([like, like])
+        clauses.append(
+            """(
+              p.name LIKE ? OR p.notes LIKE ?
+              OR EXISTS (
+                SELECT 1 FROM package_systems ps
+                JOIN systems s ON s.id = ps.system_id
+                WHERE ps.package_id = p.id
+                  AND (s.name LIKE ? OR s.abbreviation LIKE ?)
+                  AND (s.deleted_at IS NULL OR s.deleted_at = '')
+              )
+              OR EXISTS (
+                SELECT 1 FROM package_work_types pw
+                JOIN work_types w ON w.id = pw.work_type_id
+                WHERE pw.package_id = p.id
+                  AND (w.name LIKE ? OR w.abbreviation LIKE ? OR w.explanation LIKE ?)
+                  AND (w.deleted_at IS NULL OR w.deleted_at = '')
+              )
+              OR EXISTS (
+                SELECT 1 FROM package_problems pp
+                JOIN content_sections cs ON cs.id = pp.section_id
+                WHERE pp.package_id = p.id
+                  AND (cs.title LIKE ? OR cs.explanation LIKE ?)
+                  AND (cs.deleted_at IS NULL OR cs.deleted_at = '')
+              )
+            )"""
+        )
+        params.extend([like] * 9)
     where = " AND ".join(
-        c.replace("deleted_at", "p.deleted_at") if "deleted_at" in c else c
+        NOT_DELETED.replace("deleted_at", "p.deleted_at") if c == NOT_DELETED else c
         for c in clauses
     )
     with db_session() as conn:
