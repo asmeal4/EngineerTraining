@@ -9,17 +9,28 @@
   </button>
   <div class="system-multi-panel" hidden>
     {% if item_list %}
-    {% for s in item_list %}
-    {% set item_label = s.name or s.title %}
-    {% set item_abbr = s.abbreviation if s.abbreviation is defined and s.abbreviation else none %}
-    {% set display_label = (item_label ~ ' (' ~ item_abbr ~ ')') if item_abbr else item_label %}
-    <label class="system-multi-option">
-      <input type="checkbox" name="{{ field_name }}" value="{{ s.id }}"
-        data-label="{{ display_label }}"
-        {% if s.id in selected_ids or (s.id|string) in selected_ids %}checked{% endif %}>
-      <span>{{ display_label }}</span>
-    </label>
-    {% endfor %}
+    <div class="system-multi-search">
+      <input type="search"
+        class="system-multi-search-input"
+        data-multi-picker-search
+        placeholder="بحث..."
+        autocomplete="off"
+        aria-label="بحث في القائمة">
+    </div>
+    <div class="system-multi-options" data-multi-picker-options>
+      {% for s in item_list %}
+      {% set item_label = s.name or s.title %}
+      {% set item_abbr = s.abbreviation if s.abbreviation is defined and s.abbreviation else none %}
+      {% set display_label = (item_label ~ ' (' ~ item_abbr ~ ')') if item_abbr else item_label %}
+      <label class="system-multi-option" data-multi-picker-option data-search-text="{{ display_label|lower }}">
+        <input type="checkbox" name="{{ field_name }}" value="{{ s.id }}"
+          data-label="{{ display_label }}"
+          {% if s.id in selected_ids or (s.id|string) in selected_ids %}checked{% endif %}>
+        <span>{{ display_label }}</span>
+      </label>
+      {% endfor %}
+      <div class="system-multi-empty" data-multi-picker-no-match hidden>لا توجد نتائج</div>
+    </div>
     {% else %}
     <div class="system-multi-empty">لا توجد عناصر</div>
     {% endif %}

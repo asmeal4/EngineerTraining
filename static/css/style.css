@@ -846,8 +846,10 @@ tr:hover td { background: rgba(15, 92, 76, 0.03); }
   left: 0;
   top: calc(100% + 4px);
   min-width: 220px;
-  max-height: 260px;
-  overflow-y: auto;
+  max-height: 280px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 8px;
   background: #fff;
   border: 1px solid var(--line);
@@ -856,6 +858,29 @@ tr:hover td { background: rgba(15, 92, 76, 0.03); }
 }
 .system-multi-panel[hidden] {
   display: none !important;
+}
+.system-multi-search {
+  flex: 0 0 auto;
+  margin-bottom: 6px;
+}
+.system-multi-search-input {
+  width: 100%;
+  min-height: 36px;
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid #cfc6b8;
+  border-radius: 8px;
+  font: inherit;
+  background: #fff;
+}
+.system-multi-search-input:focus {
+  border-color: var(--brand);
+  outline: 2px solid rgba(15, 92, 76, 0.2);
+}
+.system-multi-options {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
 }
 .system-multi-option {
   display: flex;
@@ -866,6 +891,9 @@ tr:hover td { background: rgba(15, 92, 76, 0.03); }
   border-radius: 8px;
   cursor: pointer;
   user-select: none;
+}
+.system-multi-option[hidden] {
+  display: none !important;
 }
 .system-multi-option:hover {
   background: rgba(15, 92, 76, 0.08);

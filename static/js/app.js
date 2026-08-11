@@ -139,10 +139,13 @@
       var empty = document.createElement("li");
       empty.className = "empty compact";
       empty.setAttribute("data-empty", "");
-      empty.textContent =
-        targetId.indexOf("work") >= 0
-          ? "لم يُختر أي نوع عمل"
-          : "لم يُختر أي نظام";
+      if (targetId.indexOf("work") >= 0) {
+        empty.textContent = "لم يُختر أي نوع عمل";
+      } else if (targetId.indexOf("problem") >= 0) {
+        empty.textContent = "لم يُختر أي مشكلة";
+      } else {
+        empty.textContent = "لم يُختر أي نظام";
+      }
       list.appendChild(empty);
       return;
     }
@@ -156,28 +159,89 @@
     });
   }
 
+  function filterPickerOptions(picker) {
+    var search = picker.querySelector("[data-multi-picker-search]");
+    var options = picker.querySelectorAll("[data-multi-picker-option]");
+    var noMatch = picker.querySelector("[data-multi-picker-no-match]");
+    if (!search || !options.length) return;
+    var q = (search.value || "").trim().toLowerCase();
+    var visible = 0;
+    options.forEach(function (opt) {
+      var text = (
+        opt.getAttribute("data-search-text") ||
+        opt.textContent ||
+        ""
+      ).toLowerCase();
+      var show = !q || text.indexOf(q) !== -1;
+      if (show) {
+        opt.removeAttribute("hidden");
+        visible += 1;
+      } else {
+        opt.setAttribute("hidden", "");
+      }
+    });
+    if (noMatch) {
+      if (visible === 0) noMatch.removeAttribute("hidden");
+      else noMatch.setAttribute("hidden", "");
+    }
+  }
+
+  function resetPickerSearch(picker) {
+    var search = picker.querySelector("[data-multi-picker-search]");
+    if (search) search.value = "";
+    filterPickerOptions(picker);
+  }
+
+  function closeAllMultiPickers() {
+    document.querySelectorAll("[data-system-multi-picker]").forEach(function (p) {
+      p.classList.remove("is-open");
+      var pan = p.querySelector(".system-multi-panel");
+      var trg = p.querySelector(".system-multi-trigger");
+      if (pan) pan.setAttribute("hidden", "");
+      if (trg) trg.setAttribute("aria-expanded", "false");
+      resetPickerSearch(p);
+    });
+  }
+
   function initMultiPickers() {
     document.querySelectorAll("[data-system-multi-picker]").forEach(function (picker) {
       var trigger = picker.querySelector(".system-multi-trigger");
       var panel = picker.querySelector(".system-multi-panel");
+      var search = picker.querySelector("[data-multi-picker-search]");
       if (!trigger || !panel) return;
 
       trigger.addEventListener("click", function (e) {
         e.preventDefault();
         var open = panel.hasAttribute("hidden");
-        document.querySelectorAll("[data-system-multi-picker]").forEach(function (p) {
-          p.classList.remove("is-open");
-          var pan = p.querySelector(".system-multi-panel");
-          var trg = p.querySelector(".system-multi-trigger");
-          if (pan) pan.setAttribute("hidden", "");
-          if (trg) trg.setAttribute("aria-expanded", "false");
-        });
+        closeAllMultiPickers();
         if (open) {
           panel.removeAttribute("hidden");
           picker.classList.add("is-open");
           trigger.setAttribute("aria-expanded", "true");
+          if (search) {
+            setTimeout(function () {
+              search.focus();
+            }, 0);
+          }
         }
       });
+
+      if (search) {
+        search.addEventListener("input", function () {
+          filterPickerOptions(picker);
+        });
+        search.addEventListener("keydown", function (e) {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            closeAllMultiPickers();
+            trigger.focus();
+          }
+          e.stopPropagation();
+        });
+        search.addEventListener("click", function (e) {
+          e.stopPropagation();
+        });
+      }
 
       picker.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
         cb.addEventListener("change", function () {
@@ -189,13 +253,7 @@
 
     document.addEventListener("click", function (e) {
       if (e.target.closest("[data-system-multi-picker]")) return;
-      document.querySelectorAll("[data-system-multi-picker]").forEach(function (p) {
-        p.classList.remove("is-open");
-        var pan = p.querySelector(".system-multi-panel");
-        var trg = p.querySelector(".system-multi-trigger");
-        if (pan) pan.setAttribute("hidden", "");
-        if (trg) trg.setAttribute("aria-expanded", "false");
-      });
+      closeAllMultiPickers();
     });
   }
 
