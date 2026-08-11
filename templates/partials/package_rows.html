@@ -1,13 +1,15 @@
-{% macro package_rows(p, show_delete=false, id_prefix='') %}
+{% macro package_rows(p, show_delete=false, id_prefix='', q='') %}
 {% set pkg_key = id_prefix ~ p.id %}
-<tr class="package-main-row" data-package-row="{{ pkg_key }}">
-  <td><strong class="pkg-name">{{ p.name }}</strong></td>
+{% set open_work_id = p.open_work_id if p.open_work_id is defined else none %}
+{% set open_problem_id = p.open_problem_id if p.open_problem_id is defined else none %}
+<tr class="package-main-row{% if p.search_hit %} has-search-hit{% endif %}" data-package-row="{{ pkg_key }}">
+  <td><strong class="pkg-name">{{ p.name|highlight(q) }}</strong></td>
   <td class="pkg-cell-badges">
     {% for s in p.systems %}
-    <span class="badge brand pkg-chip">{{ s.abbreviation }}</span>
+    <span class="badge brand pkg-chip{% if s.search_hit %} has-search-hit{% endif %}">{{ s.abbreviation|highlight(q) }}</span>
     {% else %}<span class="pkg-empty">—</span>{% endfor %}
   </td>
-  <td class="pkg-notes">{{ p.notes or '—' }}</td>
+  <td class="pkg-notes">{% if p.notes %}{{ p.notes|highlight(q) }}{% else %}—{% endif %}</td>
   <td class="pkg-added">
     <span>{{ p.created_by_name or '—' }}</span>
     {% if p.created_at %}
@@ -33,12 +35,12 @@
       <div class="package-work-badges">
         {% for w in p.work_types %}
         <button type="button"
-          class="badge active pkg-work-btn"
+          class="badge active pkg-work-btn{% if w.search_hit %} has-search-hit{% endif %}{% if open_work_id == w.id %} is-open{% endif %}"
           data-work-type-toggle
           data-package-id="{{ pkg_key }}"
           data-work-id="{{ w.id }}"
-          aria-expanded="false">
-          {{ w.name }}{% if w.abbreviation %} · {{ w.abbreviation }}{% endif %}
+          aria-expanded="{{ 'true' if open_work_id == w.id else 'false' }}">
+          {{ w.name|highlight(q) }}{% if w.abbreviation %} · {{ w.abbreviation|highlight(q) }}{% endif %}
         </button>
         {% endfor %}
       </div>
@@ -47,17 +49,17 @@
       {% endif %}
     </div>
     {% if p.work_types %}
-    <div class="work-type-detail pkg-work-detail" data-package-detail="{{ pkg_key }}" hidden>
+    <div class="work-type-detail pkg-work-detail" data-package-detail="{{ pkg_key }}"{% if not open_work_id %} hidden{% endif %}>
       {% for w in p.work_types %}
-      <div class="work-type-detail-item" data-work-detail="{{ w.id }}" hidden>
+      <div class="work-type-detail-item" data-work-detail="{{ w.id }}"{% if open_work_id != w.id %} hidden{% endif %}>
         <div class="work-type-detail-head">
-          <strong>{{ w.name }}</strong>
-          {% if w.abbreviation %}<span class="badge brand pkg-chip">{{ w.abbreviation }}</span>{% endif %}
+          <strong>{{ w.name|highlight(q) }}</strong>
+          {% if w.abbreviation %}<span class="badge brand pkg-chip{% if w.search_hit %} has-search-hit{% endif %}">{{ w.abbreviation|highlight(q) }}</span>{% endif %}
           <a class="btn ghost small pkg-work-edit" href="/work-types/{{ w.id }}/edit">تعديل</a>
         </div>
         {% if w.has_explanation and (w.explanation or w.image_path) %}
           {% if w.explanation %}
-          <div class="work-type-explanation">{{ w.explanation }}</div>
+          <div class="work-type-explanation">{{ w.explanation|highlight(q) }}</div>
           {% endif %}
           {% if w.image_path %}
           <div class="work-type-image">
@@ -81,12 +83,12 @@
       <div class="package-work-badges">
         {% for pr in p.problems %}
         <button type="button"
-          class="badge active pkg-work-btn"
+          class="badge active pkg-work-btn{% if pr.search_hit %} has-search-hit{% endif %}{% if open_problem_id == pr.id %} is-open{% endif %}"
           data-problem-toggle
           data-package-id="{{ pkg_key }}"
           data-problem-id="{{ pr.id }}"
-          aria-expanded="false">
-          {{ pr.title }}
+          aria-expanded="{{ 'true' if open_problem_id == pr.id else 'false' }}">
+          {{ pr.title|highlight(q) }}
         </button>
         {% endfor %}
       </div>
@@ -95,16 +97,16 @@
       {% endif %}
     </div>
     {% if p.problems %}
-    <div class="work-type-detail pkg-work-detail" data-package-problem-detail="{{ pkg_key }}" hidden>
+    <div class="work-type-detail pkg-work-detail" data-package-problem-detail="{{ pkg_key }}"{% if not open_problem_id %} hidden{% endif %}>
       {% for pr in p.problems %}
-      <div class="work-type-detail-item" data-problem-detail="{{ pr.id }}" hidden>
+      <div class="work-type-detail-item" data-problem-detail="{{ pr.id }}"{% if open_problem_id != pr.id %} hidden{% endif %}>
         <div class="work-type-detail-head">
-          <strong>{{ pr.title }}</strong>
+          <strong>{{ pr.title|highlight(q) }}</strong>
           <a class="btn ghost small pkg-work-edit" href="/problems/sections/{{ pr.id }}/edit">تعديل</a>
         </div>
         {% if pr.explanation or pr.image_path %}
           {% if pr.explanation %}
-          <div class="work-type-explanation">{{ pr.explanation }}</div>
+          <div class="work-type-explanation">{{ pr.explanation|highlight(q) }}</div>
           {% endif %}
           {% if pr.image_path %}
           <div class="work-type-image">

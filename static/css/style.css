@@ -1084,6 +1084,30 @@ tr:hover td { background: rgba(15, 92, 76, 0.03); }
   outline: 2px solid var(--brand);
   box-shadow: none;
 }
+.pkg-work-btn.has-search-hit {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 3px rgba(196, 92, 38, 0.12);
+}
+.package-main-row.has-search-hit td {
+  background: rgba(196, 92, 38, 0.04);
+}
+.pkg-chip.has-search-hit {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+mark.search-hit {
+  background: rgba(196, 92, 38, 0.22);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 0.12em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.search-result-meta {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
 .pkg-empty {
   color: var(--muted);
   font-size: 0.78rem;

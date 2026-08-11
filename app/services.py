@@ -1621,41 +1621,6 @@ def _package_links(
 
 
 def list_packages(q: str = "") -> list[dict]:
-    clauses = [NOT_DELETED]
-    params: list[Any] = []
-    if q:
-        like = f"%{q.strip()}%"
-        clauses.append(
-            """(
-              p.name LIKE ? OR p.notes LIKE ?
-              OR EXISTS (
-                SELECT 1 FROM package_systems ps
-                JOIN systems s ON s.id = ps.system_id
-                WHERE ps.package_id = p.id
-                  AND (s.name LIKE ? OR s.abbreviation LIKE ?)
-                  AND (s.deleted_at IS NULL OR s.deleted_at = '')
-              )
-              OR EXISTS (
-                SELECT 1 FROM package_work_types pw
-                JOIN work_types w ON w.id = pw.work_type_id
-                WHERE pw.package_id = p.id
-                  AND (w.name LIKE ? OR w.abbreviation LIKE ? OR w.explanation LIKE ?)
-                  AND (w.deleted_at IS NULL OR w.deleted_at = '')
-              )
-              OR EXISTS (
-                SELECT 1 FROM package_problems pp
-                JOIN content_sections cs ON cs.id = pp.section_id
-                WHERE pp.package_id = p.id
-                  AND (cs.title LIKE ? OR cs.explanation LIKE ?)
-                  AND (cs.deleted_at IS NULL OR cs.deleted_at = '')
-              )
-            )"""
-        )
-        params.extend([like] * 9)
-    where = " AND ".join(
-        NOT_DELETED.replace("deleted_at", "p.deleted_at") if c == NOT_DELETED else c
-        for c in clauses
-    )
     with db_session() as conn:
         rows = conn.execute(
             f"""
@@ -1665,10 +1630,9 @@ def list_packages(q: str = "") -> list[dict]:
             FROM packages p
             LEFT JOIN users cb ON cb.id = p.created_by
             LEFT JOIN users ub ON ub.id = p.updated_by
-            WHERE {where}
+            WHERE {NOT_DELETED.replace("deleted_at", "p.deleted_at")}
             ORDER BY p.name
             """,
-            params,
         ).fetchall()
         result = []
         for row in rows:
@@ -1681,7 +1645,61 @@ def list_packages(q: str = "") -> list[dict]:
             item["work_type_ids"] = [w["id"] for w in work_types]
             item["problem_ids"] = [p["id"] for p in problems]
             result.append(item)
-    return result
+
+    needle = (q or "").strip().lower()
+    if not needle:
+        return result
+
+    def contains(text: Any) -> bool:
+        return needle in (text or "").lower()
+
+    matched: list[dict] = []
+    for item in result:
+        systems = item.get("systems") or []
+        work_types = item.get("work_types") or []
+        problems = item.get("problems") or []
+
+        pkg_hit = contains(item.get("name")) or contains(item.get("notes"))
+        any_hit = pkg_hit
+
+        for s in systems:
+            s_hit = contains(s.get("name")) or contains(s.get("abbreviation"))
+            s["search_hit"] = s_hit
+            if s_hit:
+                any_hit = True
+
+        for w in work_types:
+            w_hit = (
+                contains(w.get("name"))
+                or contains(w.get("abbreviation"))
+                or contains(w.get("explanation"))
+            )
+            w["search_hit"] = w_hit
+            w["auto_open"] = w_hit
+            if w_hit:
+                any_hit = True
+
+        for pr in problems:
+            pr_hit = contains(pr.get("title")) or contains(pr.get("explanation"))
+            pr["search_hit"] = pr_hit
+            pr["auto_open"] = pr_hit
+            if pr_hit:
+                any_hit = True
+
+        if not any_hit:
+            continue
+        item["search_hit"] = True
+        item["open_work_id"] = next(
+            (w["id"] for w in work_types if w.get("auto_open")),
+            None,
+        )
+        item["open_problem_id"] = next(
+            (pr["id"] for pr in problems if pr.get("auto_open")),
+            None,
+        )
+        matched.append(item)
+
+    return matched
 
 
 def get_package(package_id: int) -> Optional[dict]:

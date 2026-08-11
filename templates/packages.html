@@ -17,6 +17,9 @@
       <button class="btn secondary" type="submit">بحث</button>
     </form>
   </div>
+  {% if q %}
+  <p class="search-result-meta">عدد النتائج: {{ packages|length }}</p>
+  {% endif %}
   {% if packages %}
   <div class="table-wrap">
     <table class="packages-table pkg-compact">
@@ -31,13 +34,13 @@
       </thead>
       <tbody>
         {% for p in packages %}
-        {{ package_rows(p, show_delete=true, id_prefix='') }}
+        {{ package_rows(p, show_delete=true, id_prefix='', q=q) }}
         {% endfor %}
       </tbody>
     </table>
   </div>
   {% else %}
-  <div class="empty">لا توجد باقات</div>
+  <div class="empty">{% if q %}لا توجد نتائج مطابقة{% else %}لا توجد باقات{% endif %}</div>
   {% endif %}
 </div>
 {% endblock %}

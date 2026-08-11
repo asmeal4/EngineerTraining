@@ -1,6 +1,8 @@
 from contextlib import asynccontextmanager
 from datetime import date
+from html import escape as html_escape
 from pathlib import Path
+from re import IGNORECASE, escape as re_escape, sub as re_sub
 from typing import Optional
 from uuid import uuid4
 
@@ -8,6 +10,7 @@ from fastapi import BackgroundTasks, FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -32,6 +35,22 @@ app.add_middleware(
 )
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+
+def highlight_text(value, query: str = "") -> Markup:
+    text = "" if value is None else str(value)
+    needle = (query or "").strip()
+    if not needle:
+        return Markup(html_escape(text))
+    pattern = re_escape(needle)
+
+    def repl(match) -> str:
+        return f'<mark class="search-hit">{html_escape(match.group(0))}</mark>'
+
+    return Markup(re_sub(pattern, repl, html_escape(text), flags=IGNORECASE))
+
+
+templates.env.filters["highlight"] = highlight_text
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 app.mount(
     "/uploads",

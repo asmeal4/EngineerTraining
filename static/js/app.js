@@ -535,6 +535,16 @@
     });
   }
 
+  function initSearchHitScroll() {
+    var hit = document.querySelector("mark.search-hit");
+    if (!hit) return;
+    try {
+      hit.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    } catch (e) {
+      hit.scrollIntoView(false);
+    }
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     initAutoFilters();
     initMultiPickers();
@@ -542,5 +552,6 @@
     initWorkTypeToggle();
     initProblemToggle();
     initDetailsToggle();
+    initSearchHitScroll();
   });
 })();
