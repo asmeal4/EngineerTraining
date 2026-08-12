@@ -6,7 +6,7 @@
   <div>
     <h1>{% if mode == 'new' %}مهندس جديد{% else %}تعديل مهندس{% endif %}</h1>
   </div>
-  <a class="btn ghost" href="/users">رجوع</a>
+  <a class="btn ghost" href="{% if user and current_user and current_user.id == user.id and 'users' not in visible_screens %}/{% else %}/users{% endif %}">رجوع</a>
 </section>
 
 <div class="panel">
@@ -48,10 +48,43 @@
       <input type="hidden" name="is_active" value="{{ '1' if not user or user.is_active else '0' }}">
       {% endif %}
     </div>
+
+    {% if is_admin %}
+    <details class="screen-permissions-panel" style="margin-top:20px" open>
+      <summary class="section-title" style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px">
+        <span>صلاحيات الشاشات</span>
+        <span style="color:var(--muted);font-size:.9rem;font-weight:400">(إظهار في القائمة والوصول المباشر)</span>
+      </summary>
+      <div style="margin-top:12px">
+        {% if user and user.role != 'admin' and not user.visible_screens %}
+        <p class="field-hint" style="margin-bottom:10px">
+          هذا المستخدم يرى جميع الشاشات حالياً. ألغِ تحديد الشاشات غير المرغوبة ثم احفظ لتطبيق القيود.
+        </p>
+        {% endif %}
+        <div class="actions" style="margin-bottom:12px">
+          <button type="button" class="btn ghost small" data-screen-permissions-all>تحديد الكل</button>
+          <button type="button" class="btn ghost small" data-screen-permissions-none>إلغاء الكل</button>
+        </div>
+        <div class="screen-permissions-grid" data-screen-permissions-grid>
+          {% for key, meta in screen_permissions.items() %}
+          <label class="checkbox-row screen-permission-item">
+            <input type="checkbox" name="visible_screens" value="{{ key }}"
+              {% if key in selected_screens %}checked{% endif %}>
+            <span>{{ meta.label }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <p class="field-hint" style="margin-top:10px">
+          الشاشات غير المحددة تختفي من القائمة؛ يمكن الوصول للمحتوى المرتبط من الباقات عند تفعيل شاشة الباقات.
+        </p>
+      </div>
+    </details>
+    {% endif %}
+
     {% if user %}{{ audit_meta(user) }}{% endif %}
     <div class="actions">
       <button class="btn" type="submit">حفظ</button>
-      <a class="btn secondary" href="/users">إلغاء</a>
+      <a class="btn secondary" href="{% if user and current_user and current_user.id == user.id and 'users' not in visible_screens %}/{% else %}/users{% endif %}">إلغاء</a>
     </div>
   </form>
 </div>

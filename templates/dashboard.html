@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "partials/package_rows.html" import package_rows %}
+{% from "partials/package_rows.html" import package_rows with context %}
 {% block title %}لوحة التحكم — تدريب المهندسين{% endblock %}
 {% block content %}
 <section class="page-head">
@@ -8,34 +8,49 @@
     <p>نظرة سريعة على المهام والتدريب والتركيب</p>
   </div>
   <div class="actions">
+    {% if 'tasks' in visible_screens %}
     <a class="btn" href="/tasks/new">مهمة جديدة</a>
+    {% endif %}
+    {% if 'packages' in visible_screens %}
     <a class="btn secondary" href="/packages/new">باقة جديدة</a>
+    {% endif %}
   </div>
 </section>
 
 <div class="stats">
+  {% if 'tasks' in visible_screens %}
   <a class="stat brand" href="/tasks" style="text-decoration:none;color:inherit">
     <div class="label">{% if stats.tasks_for_self %}مهامي{% else %}مهام{% endif %}</div>
     <div class="value">{{ stats.task_count }}</div>
   </a>
+  {% endif %}
+  {% if 'training' in visible_screens %}
   <a class="stat" href="/training" style="text-decoration:none;color:inherit">
     <div class="label">تدريب</div>
     <div class="value">{{ stats.training_count }}</div>
   </a>
+  {% endif %}
+  {% if 'problems' in visible_screens %}
   <a class="stat" href="/problems" style="text-decoration:none;color:inherit">
     <div class="label">أكثر المشكلات</div>
     <div class="value">{{ stats.problems_count }}</div>
   </a>
+  {% endif %}
+  {% if 'work_types' in visible_screens %}
   <a class="stat ok" href="/work-types" style="text-decoration:none;color:inherit">
     <div class="label">نوع العمل</div>
     <div class="value">{{ stats.work_type_count }}</div>
   </a>
+  {% endif %}
+  {% if 'trash' in visible_screens %}
   <a class="stat danger" href="/trash" style="text-decoration:none;color:inherit">
     <div class="label">سلة المحذوفات</div>
     <div class="value">{{ stats.trash_count }}</div>
   </a>
+  {% endif %}
 </div>
 
+{% if 'tasks' in visible_screens %}
 <section class="panel" style="margin-top:18px">
   <div class="page-head" style="margin-bottom:10px">
     <div>
@@ -90,7 +105,9 @@
   </div>
   {% endif %}
 </section>
+{% endif %}
 
+{% if 'packages' in visible_screens %}
 <section class="panel" style="margin-top:18px">
   <div class="page-head" style="margin-bottom:10px">
     <div>
@@ -123,4 +140,5 @@
   <div class="empty">لا توجد باقات بعد — <a href="/packages/new">أضف باقة</a></div>
   {% endif %}
 </section>
+{% endif %}
 {% endblock %}

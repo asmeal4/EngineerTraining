@@ -657,6 +657,17 @@ tr:hover td { background: rgba(15, 92, 76, 0.03); }
   gap: 8px;
   margin-top: 28px;
 }
+.screen-permissions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px 16px;
+}
+.screen-permissions-grid .screen-permission-item {
+  margin-top: 0;
+}
+.screen-permissions-panel summary::-webkit-details-marker {
+  display: none;
+}
 .form-grid .parent-toggle-row {
   margin-top: 0;
   margin-bottom: 0;

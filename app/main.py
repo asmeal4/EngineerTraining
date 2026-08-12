@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import auth, backup, services
@@ -26,13 +27,6 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="تدريب المهندسين", lifespan=lifespan)
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=SECRET_KEY,
-    session_cookie=SESSION_COOKIE,
-    same_site="lax",
-    https_only=HTTPS_ONLY,
-)
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
@@ -89,17 +83,90 @@ def pop_flash(request: Request) -> Optional[dict]:
 
 def render(request: Request, name: str, context: Optional[dict] = None, status_code: int = 200):
     user = auth.get_current_user(request)
+    visible = auth.get_visible_screens(user) if user else set()
     ctx = {
         "request": request,
         "flash": pop_flash(request),
         "user_logged_in": auth.is_logged_in(request) and user is not None,
         "current_user": user,
         "is_admin": auth.is_admin(request),
+        "visible_screens": visible,
+        "can_screen": lambda key, _visible=visible: key in _visible,
         "today": date.today().isoformat(),
     }
     if context:
         ctx.update(context)
     return templates.TemplateResponse(name, ctx, status_code=status_code)
+
+
+def require_screen(request: Request, screen_key: str):
+    if (redir := auth.require_login(request)):
+        return redir
+    user = auth.get_current_user(request)
+    if not auth.can_access_screen(user, screen_key):
+        flash(request, "ليس لديك صلاحية الوصول لهذه الشاشة", "error")
+        return RedirectResponse("/", status_code=303)
+    return None
+
+
+def _is_self_user_profile_path(request: Request, user: dict) -> bool:
+    path = request.url.path.rstrip("/")
+    prefix = "/users/"
+    if not path.startswith(prefix):
+        return False
+    rest = path[len(prefix) :]
+    parts = rest.split("/")
+    if not parts or not parts[0].isdigit():
+        return False
+    if int(parts[0]) != int(user["id"]):
+        return False
+    if len(parts) == 1:
+        return request.method == "GET"
+    return parts[1] == "edit"
+
+
+class ScreenPermissionMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        if (
+            path in ("/login", "/logout", "/health", "/favicon.ico")
+            or path.startswith("/static")
+            or path.startswith("/uploads")
+        ):
+            return await call_next(request)
+        if not auth.is_logged_in(request):
+            return await call_next(request)
+        user = auth.get_current_user(request)
+        if not user:
+            return await call_next(request)
+        screen = services.screen_for_path(path)
+        if not screen:
+            return await call_next(request)
+        if screen == "users" and _is_self_user_profile_path(request, user):
+            return await call_next(request)
+        if auth.can_access_screen(user, screen):
+            return await call_next(request)
+        target = services.first_allowed_screen(user)
+        accept = request.headers.get("accept", "")
+        if "text/html" in accept:
+            flash(request, "ليس لديك صلاحية الوصول لهذه الشاشة", "error")
+            if request.url.path.rstrip("/") == target.rstrip("/"):
+                return RedirectResponse("/logout", status_code=303)
+            return RedirectResponse(target, status_code=303)
+        return JSONResponse(
+            {"detail": "ليس لديك صلاحية الوصول لهذه الشاشة"},
+            status_code=403,
+        )
+
+
+app.add_middleware(ScreenPermissionMiddleware)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SECRET_KEY,
+    session_cookie=SESSION_COOKIE,
+    same_site="lax",
+    https_only=HTTPS_ONLY,
+)
 
 
 def current_user_id(request: Request) -> Optional[int]:
@@ -214,6 +281,9 @@ def login_submit(
         auth.login_user(request, user)
         flash(request, "تم تسجيل الدخول بنجاح")
         target = next if next.startswith("/") else "/"
+        screen = services.screen_for_path(target)
+        if not screen or not auth.can_access_screen(user, screen):
+            target = services.first_allowed_screen(user)
         return RedirectResponse(target, status_code=303)
     flash(request, "رقم الجوال أو كلمة المرور غير صحيحة", "error")
     return RedirectResponse("/login", status_code=303)
@@ -229,7 +299,7 @@ def logout(request: Request):
 
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request):
-    if (redir := auth.require_login(request)):
+    if (redir := require_screen(request, "dashboard")):
         return redir
     user = auth.get_current_user(request)
     return render(
@@ -256,7 +326,16 @@ def users_list(request: Request, q: str = ""):
 def users_new(request: Request):
     if (redir := auth.require_admin(request)):
         return redir
-    return render(request, "user_form.html", {"user": None, "mode": "new"})
+    return render(
+        request,
+        "user_form.html",
+        {
+            "user": None,
+            "mode": "new",
+            "screen_permissions": services.SCREEN_PERMISSIONS,
+            "selected_screens": services.selected_screens_for_form(None),
+        },
+    )
 
 
 @app.post("/users/new")
@@ -264,14 +343,16 @@ async def users_create(request: Request):
     if (redir := auth.require_admin(request)):
         return redir
     form = await request.form()
+    role = form.get("role") or "user"
     try:
         services.create_user(
             {
                 "name": form.get("name"),
                 "phone": form.get("phone"),
                 "password": form.get("password"),
-                "role": form.get("role") or "user",
+                "role": role,
                 "is_active": form.get("is_active") == "1",
+                "visible_screens": services.parse_visible_screen_list(form),
             },
             actor_id=current_user_id(request),
         )
@@ -301,7 +382,16 @@ def users_edit(request: Request, user_id: int):
     if not auth.is_admin(request) and actor and actor["id"] != user_id:
         flash(request, "ليس لديك صلاحية تعديل هذا المستخدم", "error")
         return RedirectResponse("/users", status_code=303)
-    return render(request, "user_form.html", {"user": user, "mode": "edit"})
+    return render(
+        request,
+        "user_form.html",
+        {
+            "user": user,
+            "mode": "edit",
+            "screen_permissions": services.SCREEN_PERMISSIONS,
+            "selected_screens": services.selected_screens_for_form(user),
+        },
+    )
 
 
 @app.post("/users/{user_id}/edit")
@@ -309,6 +399,8 @@ async def users_update(request: Request, user_id: int):
     if (redir := auth.require_login(request)):
         return redir
     form = await request.form()
+    actor = auth.get_current_user(request)
+    is_self = actor and int(actor["id"]) == user_id
     try:
         services.update_user(
             user_id,
@@ -318,11 +410,14 @@ async def users_update(request: Request, user_id: int):
                 "password": form.get("password"),
                 "role": form.get("role") or "user",
                 "is_active": form.get("is_active") == "1",
+                "visible_screens": services.parse_visible_screen_list(form),
             },
             actor_id=current_user_id(request),
             actor_is_admin=auth.is_admin(request),
         )
         flash(request, "تم التعديل")
+        if is_self and not auth.can_access_screen(actor, "users"):
+            return RedirectResponse("/", status_code=303)
         return RedirectResponse("/users", status_code=303)
     except PermissionError:
         flash(request, "ليس لديك صلاحية لهذا التعديل", "error")

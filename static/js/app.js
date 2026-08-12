@@ -579,6 +579,28 @@
     });
   }
 
+  function initScreenPermissions() {
+    var grid = document.querySelector("[data-screen-permissions-grid]");
+    if (!grid) return;
+    var boxes = grid.querySelectorAll('input[name="visible_screens"]');
+    var allBtn = document.querySelector("[data-screen-permissions-all]");
+    var noneBtn = document.querySelector("[data-screen-permissions-none]");
+    if (allBtn) {
+      allBtn.addEventListener("click", function () {
+        boxes.forEach(function (cb) {
+          cb.checked = true;
+        });
+      });
+    }
+    if (noneBtn) {
+      noneBtn.addEventListener("click", function () {
+        boxes.forEach(function (cb) {
+          cb.checked = false;
+        });
+      });
+    }
+  }
+
   function initSearchHitScroll() {
     var hit = document.querySelector("mark.search-hit");
     if (!hit) return;
@@ -597,6 +619,7 @@
     initProblemToggle();
     initTrainingToggle();
     initDetailsToggle();
+    initScreenPermissions();
     initSearchHitScroll();
   });
 })();

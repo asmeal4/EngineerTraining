@@ -50,7 +50,9 @@
         <div class="work-type-detail-head">
           <strong>{{ w.name|highlight(q) }}</strong>
           {% if w.abbreviation %}<span class="badge brand pkg-chip{% if w.search_hit %} has-search-hit{% endif %}">{{ w.abbreviation|highlight(q) }}</span>{% endif %}
+          {% if is_admin or 'work_types' in visible_screens %}
           <a class="btn ghost small pkg-work-edit" href="/work-types/{{ w.id }}/edit">تعديل</a>
+          {% endif %}
         </div>
         {% if w.has_explanation and (w.explanation or w.image_path) %}
           {% if w.explanation %}
@@ -97,7 +99,9 @@
       <div class="work-type-detail-item" data-training-detail="{{ tr.id }}"{% if open_training_id != tr.id %} hidden{% endif %}>
         <div class="work-type-detail-head">
           <strong>{{ tr.title|highlight(q) }}</strong>
+          {% if is_admin or 'training' in visible_screens %}
           <a class="btn ghost small pkg-work-edit" href="/training/sections/{{ tr.id }}/edit">تعديل</a>
+          {% endif %}
         </div>
         {% if tr.explanation or tr.image_path %}
           {% if tr.explanation %}

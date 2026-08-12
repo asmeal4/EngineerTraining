@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}تدريب المهندسين{% endblock %}</title>
   <link rel="icon" href="/static/favicon.svg?v=1" type="image/svg+xml">
-  <link rel="stylesheet" href="/static/css/style.css?v=13">
+  <link rel="stylesheet" href="/static/css/style.css?v=15">
 </head>
 <body>
 {% if user_logged_in %}
@@ -16,18 +16,42 @@
       <span>تعليم تركيب وتشغيل الأنظمة</span>
     </div>
     <nav class="nav">
+      {% if 'dashboard' in visible_screens %}
       <a href="/" class="{% if request.url.path == '/' %}active{% endif %}">لوحة التحكم</a>
+      {% endif %}
+      {% if 'training' in visible_screens %}
       <a href="/training" class="{% if request.url.path.startswith('/training') and not request.url.path.startswith('/training-packages') %}active{% endif %}">التدريب</a>
+      {% endif %}
+      {% if 'problems' in visible_screens %}
       <a href="/problems" class="{% if request.url.path.startswith('/problems') %}active{% endif %}">أكثر المشكلات</a>
+      {% endif %}
+      {% if 'tasks' in visible_screens %}
       <a href="/tasks" class="{% if request.url.path.startswith('/tasks') %}active{% endif %}">مهام</a>
+      {% endif %}
+      {% if 'systems' in visible_screens %}
       <a href="/systems" class="{% if request.url.path.startswith('/systems') %}active{% endif %}">الأنظمة</a>
+      {% endif %}
+      {% if 'work_types' in visible_screens %}
       <a href="/work-types" class="{% if request.url.path.startswith('/work-types') %}active{% endif %}">نوع العمل</a>
+      {% endif %}
+      {% if 'packages' in visible_screens %}
       <a href="/packages" class="{% if request.url.path.startswith('/packages') %}active{% endif %}">الباقات</a>
+      {% endif %}
+      {% if 'training_packages' in visible_screens %}
       <a href="/training-packages" class="{% if request.url.path.startswith('/training-packages') %}active{% endif %}">باقات تدريب</a>
+      {% endif %}
+      {% if 'trash' in visible_screens %}
       <a href="/trash" class="{% if request.url.path.startswith('/trash') %}active{% endif %}">سلة المحذوفات</a>
+      {% endif %}
+      {% if 'activity' in visible_screens %}
       <a href="/activity" class="{% if request.url.path.startswith('/activity') %}active{% endif %}">سجل النشاط</a>
+      {% endif %}
+      {% if 'users' in visible_screens %}
       <a href="/users" class="{% if request.url.path.startswith('/users') %}active{% endif %}">المهندسين</a>
+      {% endif %}
+      {% if 'backup' in visible_screens %}
       <a href="/backup" class="{% if request.url.path.startswith('/backup') %}active{% endif %}">نسخة احتياطية</a>
+      {% endif %}
       {% if current_user %}
       <span class="user-badge">{{ current_user.name }} — {{ current_user.role_label }}</span>
       {% endif %}
@@ -60,7 +84,7 @@
   {% block auth %}{% endblock %}
 {% endif %}
 {% if user_logged_in %}
-<script src="/static/js/app.js?v=8"></script>
+<script src="/static/js/app.js?v=10"></script>
 {% endif %}
 </body>
 </html>

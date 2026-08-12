@@ -345,4 +345,6 @@ def init_db() -> None:
             )
             """
         )
+        if not _column_exists(conn, "users", "visible_screens"):
+            conn.execute("ALTER TABLE users ADD COLUMN visible_screens TEXT")
         seed_admin(conn)

@@ -1,6 +1,7 @@
 """Business logic for EngineerTraining."""
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Any, Optional
@@ -191,8 +192,135 @@ ENTITY_LABELS = {
     "task": "مهمة",
 }
 
+SCREEN_PERMISSIONS: dict[str, dict[str, str]] = {
+    "dashboard": {"label": "لوحة التحكم", "path": "/"},
+    "training": {"label": "التدريب", "path": "/training"},
+    "problems": {"label": "أكثر المشكلات", "path": "/problems"},
+    "tasks": {"label": "مهام", "path": "/tasks"},
+    "systems": {"label": "الأنظمة", "path": "/systems"},
+    "work_types": {"label": "نوع العمل", "path": "/work-types"},
+    "packages": {"label": "الباقات", "path": "/packages"},
+    "training_packages": {"label": "باقات تدريب", "path": "/training-packages"},
+    "trash": {"label": "سلة المحذوفات", "path": "/trash"},
+    "activity": {"label": "سجل النشاط", "path": "/activity"},
+    "users": {"label": "المهندسين", "path": "/users"},
+    "backup": {"label": "نسخة احتياطية", "path": "/backup"},
+}
+
+_PATH_SCREEN_ORDER: list[tuple[str, str]] = [
+    ("training_packages", "/training-packages"),
+    ("training", "/training"),
+    ("work_types", "/work-types"),
+    ("problems", "/problems"),
+    ("packages", "/packages"),
+    ("systems", "/systems"),
+    ("activity", "/activity"),
+    ("backup", "/backup"),
+    ("users", "/users"),
+    ("tasks", "/tasks"),
+    ("trash", "/trash"),
+]
+
 NOT_DELETED = "(deleted_at IS NULL OR deleted_at = '')"
 IS_DELETED = "(deleted_at IS NOT NULL AND deleted_at != '')"
+
+
+def all_screen_keys() -> list[str]:
+    return list(SCREEN_PERMISSIONS.keys())
+
+
+def default_visible_screens(role: str = "user") -> list[str]:
+    if role == "admin":
+        return all_screen_keys()
+    return ["dashboard", "packages", "training_packages", "tasks"]
+
+
+def normalize_visible_screens(keys: list[str], role: str = "user") -> list[str]:
+    valid = set(all_screen_keys())
+    cleaned = [k for k in keys if k in valid]
+    if role == "admin":
+        return cleaned or all_screen_keys()
+    return cleaned or default_visible_screens("user")
+
+
+def encode_visible_screens(keys: list[str]) -> str:
+    return json.dumps(sorted(set(keys)), ensure_ascii=False)
+
+
+def parse_visible_screens(user: Optional[dict]) -> set[str]:
+    if not user:
+        return set()
+    if user.get("role") == "admin":
+        return set(all_screen_keys())
+    raw = user.get("visible_screens")
+    if raw is None or raw == "":
+        return set(all_screen_keys())
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return set(all_screen_keys())
+    if not isinstance(data, list):
+        return set(all_screen_keys())
+    return set(normalize_visible_screens([str(k) for k in data], user.get("role") or "user"))
+
+
+def screen_for_path(path: str) -> Optional[str]:
+    if path == "/":
+        return "dashboard"
+    for key, prefix in _PATH_SCREEN_ORDER:
+        if path == prefix or path.startswith(prefix + "/"):
+            return key
+    return None
+
+
+_SCREEN_HOME_ORDER = [
+    "dashboard",
+    "packages",
+    "training_packages",
+    "tasks",
+    "training",
+    "problems",
+    "systems",
+    "work_types",
+    "users",
+    "activity",
+    "trash",
+    "backup",
+]
+
+
+def first_allowed_screen(user: Optional[dict]) -> str:
+    allowed = parse_visible_screens(user)
+    for key in _SCREEN_HOME_ORDER:
+        if key in allowed:
+            return SCREEN_PERMISSIONS[key]["path"]
+    return "/login"
+
+
+def selected_screens_for_form(user: Optional[dict]) -> list[str]:
+    if not user:
+        return default_visible_screens("user")
+    if user.get("role") == "admin":
+        return all_screen_keys()
+    raw = user.get("visible_screens")
+    if raw is None or raw == "":
+        return all_screen_keys()
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return default_visible_screens("user")
+    if not isinstance(data, list) or not data:
+        return default_visible_screens("user")
+    return normalize_visible_screens([str(k) for k in data], user.get("role") or "user")
+
+
+def parse_visible_screen_list(form) -> list[str]:
+    if hasattr(form, "getlist"):
+        values = form.getlist("visible_screens")
+    else:
+        raw = form.get("visible_screens")
+        values = raw if isinstance(raw, list) else ([raw] if raw else [])
+    return [str(v) for v in values if v]
 
 
 # ---------------------------------------------------------------------------
@@ -503,15 +631,20 @@ def create_user(data: dict, actor_id: Optional[int] = None) -> int:
     if role not in ("admin", "user"):
         role = "user"
     is_active = 1 if data.get("is_active", True) else 0
+    visible_keys = normalize_visible_screens(
+        list(data.get("visible_screens") or []),
+        role,
+    )
+    visible_json = encode_visible_screens(visible_keys)
     if not name or not phone:
         raise ValueError("required")
     with db_session() as conn:
         cur = conn.execute(
             """
             INSERT INTO users
-            (name, phone, password_hash, role, is_active, created_at,
-             created_by, updated_by, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (name, phone, password_hash, role, is_active, visible_screens,
+             created_at, created_by, updated_by, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 name,
@@ -519,6 +652,7 @@ def create_user(data: dict, actor_id: Optional[int] = None) -> int:
                 hash_password(password),
                 role,
                 is_active,
+                visible_json,
                 now_iso(),
                 actor_id,
                 actor_id,
@@ -579,6 +713,14 @@ def update_user(
     if not name or not phone:
         raise ValueError("required")
 
+    visible_json: Optional[str] = None
+    if actor_is_admin:
+        visible_keys = normalize_visible_screens(
+            list(data.get("visible_screens") or []),
+            role,
+        )
+        visible_json = encode_visible_screens(visible_keys)
+
     with db_session() as conn:
         fields = [
             "name = ?",
@@ -589,6 +731,9 @@ def update_user(
             "updated_at = ?",
         ]
         values: list[Any] = [name, phone, role, is_active, actor_id, now_iso()]
+        if visible_json is not None:
+            fields.append("visible_screens = ?")
+            values.append(visible_json)
         if password:
             if not actor_is_admin and not is_self:
                 raise PermissionError("cannot_change_password")

@@ -101,3 +101,28 @@ def login_user(request: Request, user: dict) -> None:
 
 def logout_user(request: Request) -> None:
     request.session.clear()
+
+
+def get_visible_screens(user: Optional[dict]) -> set[str]:
+    from . import services
+
+    return services.parse_visible_screens(user)
+
+
+def can_access_screen(user: Optional[dict], screen_key: str) -> bool:
+    if not user:
+        return False
+    if user.get("role") == "admin":
+        return True
+    return screen_key in get_visible_screens(user)
+
+
+def require_screen(
+    request: Request, screen_key: str
+) -> Optional[RedirectResponse]:
+    if (redir := require_login(request)):
+        return redir
+    user = get_current_user(request)
+    if not can_access_screen(user, screen_key):
+        return RedirectResponse("/", status_code=303)
+    return None
