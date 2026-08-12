@@ -196,6 +196,34 @@ def init_db() -> None:
                 FOREIGN KEY (section_id) REFERENCES content_sections(id)
             );
 
+            CREATE TABLE IF NOT EXISTS training_packages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                notes TEXT,
+                created_at TEXT,
+                updated_at TEXT,
+                created_by INTEGER REFERENCES users(id),
+                updated_by INTEGER REFERENCES users(id),
+                deleted_at TEXT,
+                deleted_by INTEGER REFERENCES users(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS training_package_work_types (
+                training_package_id INTEGER NOT NULL,
+                work_type_id INTEGER NOT NULL,
+                PRIMARY KEY (training_package_id, work_type_id),
+                FOREIGN KEY (training_package_id) REFERENCES training_packages(id) ON DELETE CASCADE,
+                FOREIGN KEY (work_type_id) REFERENCES work_types(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS training_package_sections (
+                training_package_id INTEGER NOT NULL,
+                section_id INTEGER NOT NULL,
+                PRIMARY KEY (training_package_id, section_id),
+                FOREIGN KEY (training_package_id) REFERENCES training_packages(id) ON DELETE CASCADE,
+                FOREIGN KEY (section_id) REFERENCES content_sections(id)
+            );
+
             CREATE TABLE IF NOT EXISTS tasks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT NOT NULL,
@@ -226,7 +254,15 @@ def init_db() -> None:
         )
         _ensure_soft_delete_columns(
             conn,
-            ["users", "systems", "work_types", "packages", "content_sections", "tasks"],
+            [
+                "users",
+                "systems",
+                "work_types",
+                "packages",
+                "training_packages",
+                "content_sections",
+                "tasks",
+            ],
         )
         if not _column_exists(conn, "work_types", "sort_order"):
             conn.execute(
@@ -268,6 +304,43 @@ def init_db() -> None:
                 section_id INTEGER NOT NULL,
                 PRIMARY KEY (package_id, section_id),
                 FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE,
+                FOREIGN KEY (section_id) REFERENCES content_sections(id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS training_packages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                notes TEXT,
+                created_at TEXT,
+                updated_at TEXT,
+                created_by INTEGER REFERENCES users(id),
+                updated_by INTEGER REFERENCES users(id),
+                deleted_at TEXT,
+                deleted_by INTEGER REFERENCES users(id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS training_package_work_types (
+                training_package_id INTEGER NOT NULL,
+                work_type_id INTEGER NOT NULL,
+                PRIMARY KEY (training_package_id, work_type_id),
+                FOREIGN KEY (training_package_id) REFERENCES training_packages(id) ON DELETE CASCADE,
+                FOREIGN KEY (work_type_id) REFERENCES work_types(id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS training_package_sections (
+                training_package_id INTEGER NOT NULL,
+                section_id INTEGER NOT NULL,
+                PRIMARY KEY (training_package_id, section_id),
+                FOREIGN KEY (training_package_id) REFERENCES training_packages(id) ON DELETE CASCADE,
                 FOREIGN KEY (section_id) REFERENCES content_sections(id)
             )
             """

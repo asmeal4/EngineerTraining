@@ -983,6 +983,109 @@ def packages_delete(request: Request, package_id: int):
     return RedirectResponse("/packages", status_code=303)
 
 
+# --- Training packages ---
+
+@app.get("/training-packages", response_class=HTMLResponse)
+def training_packages_list(request: Request, q: str = ""):
+    if (redir := auth.require_login(request)):
+        return redir
+    return render(
+        request,
+        "training_packages.html",
+        {"packages": services.list_training_packages(q), "q": q},
+    )
+
+
+@app.get("/training-packages/new", response_class=HTMLResponse)
+def training_packages_new(request: Request):
+    if (redir := auth.require_login(request)):
+        return redir
+    return render(
+        request,
+        "training_package_form.html",
+        {
+            "package": None,
+            "mode": "new",
+            "all_work_types": services.list_work_types(),
+            "all_trainings": services.list_sections("training"),
+        },
+    )
+
+
+@app.post("/training-packages/new")
+async def training_packages_create(request: Request):
+    if (redir := auth.require_login(request)):
+        return redir
+    form = await request.form()
+    try:
+        services.create_training_package(
+            {"name": form.get("name"), "notes": form.get("notes")},
+            parse_id_list(form, "work_type_ids"),
+            parse_id_list(form, "training_ids"),
+            actor_id=current_user_id(request),
+        )
+        flash(request, "تم إضافة باقة التدريب")
+        return RedirectResponse("/training-packages", status_code=303)
+    except ValueError:
+        flash(request, "اسم باقة التدريب مطلوب", "error")
+        return RedirectResponse("/training-packages/new", status_code=303)
+
+
+@app.get("/training-packages/{package_id}/edit", response_class=HTMLResponse)
+def training_packages_edit(request: Request, package_id: int):
+    if (redir := auth.require_login(request)):
+        return redir
+    package = services.get_training_package(package_id)
+    if not package or package.get("deleted_at"):
+        flash(request, "باقة التدريب غير موجودة", "error")
+        return RedirectResponse("/training-packages", status_code=303)
+    return render(
+        request,
+        "training_package_form.html",
+        {
+            "package": package,
+            "mode": "edit",
+            "all_work_types": services.list_work_types(),
+            "all_trainings": services.list_sections("training"),
+        },
+    )
+
+
+@app.post("/training-packages/{package_id}/edit")
+async def training_packages_update(request: Request, package_id: int):
+    if (redir := auth.require_login(request)):
+        return redir
+    form = await request.form()
+    try:
+        services.update_training_package(
+            package_id,
+            {"name": form.get("name"), "notes": form.get("notes")},
+            parse_id_list(form, "work_type_ids"),
+            parse_id_list(form, "training_ids"),
+            actor_id=current_user_id(request),
+        )
+        flash(request, "تم التعديل")
+        return RedirectResponse("/training-packages", status_code=303)
+    except ValueError:
+        flash(request, "اسم باقة التدريب مطلوب", "error")
+        return RedirectResponse(
+            f"/training-packages/{package_id}/edit", status_code=303
+        )
+
+
+@app.post("/training-packages/{package_id}/delete")
+def training_packages_delete(request: Request, package_id: int):
+    if (redir := auth.require_login(request)):
+        return redir
+    if services.soft_delete_training_package(
+        package_id, current_user_id(request) or 0
+    ):
+        flash(request, "تم النقل إلى سلة المحذوفات")
+    else:
+        flash(request, "تعذر الحذف", "error")
+    return RedirectResponse("/training-packages", status_code=303)
+
+
 # --- Trash ---
 
 @app.get("/trash", response_class=HTMLResponse)

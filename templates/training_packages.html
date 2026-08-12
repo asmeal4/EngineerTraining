@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "partials/training_package_rows.html" import training_package_rows %}
+{% block title %}باقات تدريب{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>باقات تدريب</h1>
+    <p>اضغط نوع العمل أو قسم التدريب لعرض الشرح والصورة</p>
+  </div>
+  <a class="btn" href="/training-packages/new">باقة تدريب جديدة</a>
+</section>
+
+<div class="panel">
+  <div class="toolbar">
+    <form method="get" action="/training-packages" data-auto-filter>
+      <input type="search" name="q" value="{{ q }}" placeholder="بحث في الاسم، الملاحظة، نوع العمل، وأقسام التدريب">
+      <button class="btn secondary" type="submit">بحث</button>
+    </form>
+  </div>
+  {% if q %}
+  <p class="search-result-meta">عدد النتائج: {{ packages|length }}</p>
+  {% endif %}
+  {% if packages %}
+  <div class="table-wrap">
+    <table class="packages-table pkg-compact">
+      <thead>
+        <tr>
+          <th>الاسم</th>
+          <th>ملاحظة</th>
+          <th>من أضاف</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in packages %}
+        {{ training_package_rows(p, show_delete=true, id_prefix='', q=q) }}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">{% if q %}لا توجد نتائج مطابقة{% else %}لا توجد باقات تدريب{% endif %}</div>
+  {% endif %}
+</div>
+{% endblock %}

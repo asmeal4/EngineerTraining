@@ -1,0 +1,120 @@
+{% macro training_package_rows(p, show_delete=false, id_prefix='', q='') %}
+{% set pkg_key = id_prefix ~ p.id %}
+{% set open_work_id = p.open_work_id if p.open_work_id is defined else none %}
+{% set open_training_id = p.open_training_id if p.open_training_id is defined else none %}
+<tr class="package-main-row{% if p.search_hit %} has-search-hit{% endif %}" data-package-row="{{ pkg_key }}">
+  <td><strong class="pkg-name">{{ p.name|highlight(q) }}</strong></td>
+  <td class="pkg-notes">{% if p.notes %}{{ p.notes|highlight(q) }}{% else %}—{% endif %}</td>
+  <td class="pkg-added">
+    <span>{{ p.created_by_name or '—' }}</span>
+    {% if p.created_at %}
+    <span class="pkg-meta">{{ p.created_at }}</span>
+    {% endif %}
+  </td>
+  <td class="pkg-actions">
+    <div class="actions pkg-action-btns">
+      <a class="btn ghost small" href="/training-packages/{{ p.id }}/edit">تعديل</a>
+      {% if show_delete %}
+      <form method="post" action="/training-packages/{{ p.id }}/delete" onsubmit="return confirm('نقل إلى سلة المحذوفات؟');">
+        <button class="btn danger-soft small" type="submit">حذف</button>
+      </form>
+      {% endif %}
+    </div>
+  </td>
+</tr>
+<tr class="package-work-types-row">
+  <td colspan="4">
+    <div class="pkg-work-line">
+      <span class="pkg-work-label">نوع العمل</span>
+      {% if p.work_types %}
+      <div class="package-work-badges">
+        {% for w in p.work_types %}
+        <button type="button"
+          class="badge active pkg-work-btn{% if w.search_hit %} has-search-hit{% endif %}{% if open_work_id == w.id %} is-open{% endif %}"
+          data-work-type-toggle
+          data-package-id="{{ pkg_key }}"
+          data-work-id="{{ w.id }}"
+          aria-expanded="{{ 'true' if open_work_id == w.id else 'false' }}">
+          {{ w.name|highlight(q) }}{% if w.abbreviation %} · {{ w.abbreviation|highlight(q) }}{% endif %}
+        </button>
+        {% endfor %}
+      </div>
+      {% else %}
+      <span class="pkg-empty">لا توجد أنواع عمل</span>
+      {% endif %}
+    </div>
+    {% if p.work_types %}
+    <div class="work-type-detail pkg-work-detail" data-package-detail="{{ pkg_key }}"{% if not open_work_id %} hidden{% endif %}>
+      {% for w in p.work_types %}
+      <div class="work-type-detail-item" data-work-detail="{{ w.id }}"{% if open_work_id != w.id %} hidden{% endif %}>
+        <div class="work-type-detail-head">
+          <strong>{{ w.name|highlight(q) }}</strong>
+          {% if w.abbreviation %}<span class="badge brand pkg-chip{% if w.search_hit %} has-search-hit{% endif %}">{{ w.abbreviation|highlight(q) }}</span>{% endif %}
+          <a class="btn ghost small pkg-work-edit" href="/work-types/{{ w.id }}/edit">تعديل</a>
+        </div>
+        {% if w.has_explanation and (w.explanation or w.image_path) %}
+          {% if w.explanation %}
+          <div class="work-type-explanation">{{ w.explanation|highlight(q) }}</div>
+          {% endif %}
+          {% if w.image_path %}
+          <div class="work-type-image">
+            <img src="/uploads/{{ w.image_path }}" alt="{{ w.name }}">
+          </div>
+          {% endif %}
+        {% else %}
+        <p class="pkg-empty" style="margin:4px 0 0">لا يوجد شرح أو صورة لهذا النوع</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </td>
+</tr>
+<tr class="package-work-types-row">
+  <td colspan="4">
+    <div class="pkg-work-line">
+      <span class="pkg-work-label">التدريب</span>
+      {% if p.trainings %}
+      <div class="package-work-badges">
+        {% for tr in p.trainings %}
+        <button type="button"
+          class="badge active pkg-work-btn{% if tr.search_hit %} has-search-hit{% endif %}{% if open_training_id == tr.id %} is-open{% endif %}"
+          data-training-toggle
+          data-package-id="{{ pkg_key }}"
+          data-training-id="{{ tr.id }}"
+          aria-expanded="{{ 'true' if open_training_id == tr.id else 'false' }}">
+          {{ tr.title|highlight(q) }}
+        </button>
+        {% endfor %}
+      </div>
+      {% else %}
+      <span class="pkg-empty">لا توجد أقسام تدريب</span>
+      {% endif %}
+    </div>
+    {% if p.trainings %}
+    <div class="work-type-detail pkg-work-detail" data-package-training-detail="{{ pkg_key }}"{% if not open_training_id %} hidden{% endif %}>
+      {% for tr in p.trainings %}
+      <div class="work-type-detail-item" data-training-detail="{{ tr.id }}"{% if open_training_id != tr.id %} hidden{% endif %}>
+        <div class="work-type-detail-head">
+          <strong>{{ tr.title|highlight(q) }}</strong>
+          <a class="btn ghost small pkg-work-edit" href="/training/sections/{{ tr.id }}/edit">تعديل</a>
+        </div>
+        {% if tr.explanation or tr.image_path %}
+          {% if tr.explanation %}
+          <div class="work-type-explanation">{{ tr.explanation|highlight(q) }}</div>
+          {% endif %}
+          {% if tr.image_path %}
+          <div class="work-type-image">
+            <img src="/uploads/{{ tr.image_path }}" alt="{{ tr.title }}">
+          </div>
+          {% endif %}
+        {% else %}
+        <p class="pkg-empty" style="margin:4px 0 0">لا يوجد شرح أو صورة لهذا القسم</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </td>
+</tr>
+{% endmacro %}

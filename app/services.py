@@ -185,6 +185,7 @@ ENTITY_LABELS = {
     "system": "نظام",
     "work_type": "نوع عمل",
     "package": "باقة",
+    "training_package": "باقة تدريب",
     "training_section": "قسم تدريب",
     "problem_section": "قسم مشكلة",
     "task": "مهمة",
@@ -356,7 +357,15 @@ def dashboard_stats(user: Optional[dict] = None) -> dict:
             ).fetchone()["c"]
 
         trash = 0
-        for table in ("users", "systems", "work_types", "packages", "content_sections", "tasks"):
+        for table in (
+            "users",
+            "systems",
+            "work_types",
+            "packages",
+            "training_packages",
+            "content_sections",
+            "tasks",
+        ):
             trash += conn.execute(
                 f"SELECT COUNT(*) AS c FROM {table} WHERE {IS_DELETED}"
             ).fetchone()["c"]
@@ -1311,6 +1320,10 @@ def purge_section(section_id: int, actor_id: int) -> bool:
         conn.execute(
             "DELETE FROM package_problems WHERE section_id = ?", (section_id,)
         )
+        conn.execute(
+            "DELETE FROM training_package_sections WHERE section_id = ?",
+            (section_id,),
+        )
         conn.execute("DELETE FROM content_sections WHERE id = ?", (section_id,))
         log_activity(
             conn,
@@ -1916,6 +1929,318 @@ def purge_package(package_id: int, actor_id: int) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Training packages
+# ---------------------------------------------------------------------------
+
+def _training_package_links(
+    conn, training_package_id: int
+) -> tuple[list[dict], list[dict]]:
+    work_types = conn.execute(
+        """
+        SELECT w.id, w.name, w.abbreviation,
+               w.has_explanation, w.explanation, w.image_path
+        FROM training_package_work_types tpw
+        JOIN work_types w ON w.id = tpw.work_type_id
+        WHERE tpw.training_package_id = ?
+        ORDER BY w.sort_order, w.id
+        """,
+        (training_package_id,),
+    ).fetchall()
+    trainings = conn.execute(
+        """
+        SELECT c.id, c.title, c.explanation, c.image_path
+        FROM training_package_sections tps
+        JOIN content_sections c ON c.id = tps.section_id
+        WHERE tps.training_package_id = ?
+          AND c.page = 'training'
+          AND (c.deleted_at IS NULL OR c.deleted_at = '')
+        ORDER BY c.sort_order, c.id
+        """,
+        (training_package_id,),
+    ).fetchall()
+    return (
+        [dict(r) for r in work_types],
+        [dict(r) for r in trainings],
+    )
+
+
+def list_training_packages(q: str = "") -> list[dict]:
+    with db_session() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT tp.*,
+                   cb.name AS created_by_name,
+                   ub.name AS updated_by_name
+            FROM training_packages tp
+            LEFT JOIN users cb ON cb.id = tp.created_by
+            LEFT JOIN users ub ON ub.id = tp.updated_by
+            WHERE {NOT_DELETED.replace("deleted_at", "tp.deleted_at")}
+            ORDER BY tp.name
+            """,
+        ).fetchall()
+        result = []
+        for row in rows:
+            item = dict(row)
+            work_types, trainings = _training_package_links(conn, item["id"])
+            item["work_types"] = work_types
+            item["trainings"] = trainings
+            item["work_type_ids"] = [w["id"] for w in work_types]
+            item["training_ids"] = [t["id"] for t in trainings]
+            result.append(item)
+
+    needle = (q or "").strip().lower()
+    if not needle:
+        return result
+
+    def contains(text: Any) -> bool:
+        return needle in (text or "").lower()
+
+    matched: list[dict] = []
+    for item in result:
+        work_types = item.get("work_types") or []
+        trainings = item.get("trainings") or []
+
+        pkg_hit = contains(item.get("name")) or contains(item.get("notes"))
+        any_hit = pkg_hit
+
+        for w in work_types:
+            w_hit = (
+                contains(w.get("name"))
+                or contains(w.get("abbreviation"))
+                or contains(w.get("explanation"))
+            )
+            w["search_hit"] = w_hit
+            w["auto_open"] = w_hit
+            if w_hit:
+                any_hit = True
+
+        for tr in trainings:
+            tr_hit = contains(tr.get("title")) or contains(tr.get("explanation"))
+            tr["search_hit"] = tr_hit
+            tr["auto_open"] = tr_hit
+            if tr_hit:
+                any_hit = True
+
+        if not any_hit:
+            continue
+        item["search_hit"] = True
+        item["open_work_id"] = next(
+            (w["id"] for w in work_types if w.get("auto_open")),
+            None,
+        )
+        item["open_training_id"] = next(
+            (tr["id"] for tr in trainings if tr.get("auto_open")),
+            None,
+        )
+        matched.append(item)
+
+    return matched
+
+
+def get_training_package(training_package_id: int) -> Optional[dict]:
+    with db_session() as conn:
+        row = conn.execute(
+            """
+            SELECT tp.*,
+                   cb.name AS created_by_name,
+                   ub.name AS updated_by_name
+            FROM training_packages tp
+            LEFT JOIN users cb ON cb.id = tp.created_by
+            LEFT JOIN users ub ON ub.id = tp.updated_by
+            WHERE tp.id = ?
+            """,
+            (training_package_id,),
+        ).fetchone()
+        if not row:
+            return None
+        item = dict(row)
+        work_types, trainings = _training_package_links(conn, training_package_id)
+        item["work_types"] = work_types
+        item["trainings"] = trainings
+        item["work_type_ids"] = [w["id"] for w in work_types]
+        item["training_ids"] = [t["id"] for t in trainings]
+        return item
+
+
+def _set_training_package_links(
+    conn,
+    training_package_id: int,
+    work_type_ids: list[int],
+    training_ids: list[int],
+) -> None:
+    conn.execute(
+        "DELETE FROM training_package_work_types WHERE training_package_id = ?",
+        (training_package_id,),
+    )
+    conn.execute(
+        "DELETE FROM training_package_sections WHERE training_package_id = ?",
+        (training_package_id,),
+    )
+    for wid in work_type_ids:
+        conn.execute(
+            "INSERT INTO training_package_work_types "
+            "(training_package_id, work_type_id) VALUES (?, ?)",
+            (training_package_id, wid),
+        )
+    for tid in training_ids:
+        conn.execute(
+            "INSERT INTO training_package_sections "
+            "(training_package_id, section_id) VALUES (?, ?)",
+            (training_package_id, tid),
+        )
+
+
+def create_training_package(
+    data: dict,
+    work_type_ids: list[int],
+    training_ids: list[int],
+    actor_id: Optional[int] = None,
+) -> int:
+    name = (data.get("name") or "").strip()
+    notes = (data.get("notes") or "").strip() or None
+    if not name:
+        raise ValueError("required")
+    with db_session() as conn:
+        cur = conn.execute(
+            """
+            INSERT INTO training_packages
+            (name, notes, created_at, updated_at, created_by, updated_by)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (name, notes, now_iso(), now_iso(), actor_id, actor_id),
+        )
+        pid = int(cur.lastrowid)
+        _set_training_package_links(conn, pid, work_type_ids, training_ids)
+        log_activity(
+            conn,
+            user_id=actor_id,
+            action="create",
+            entity_type="training_package",
+            entity_id=pid,
+            details=f"إضافة باقة تدريب: {name}",
+        )
+        return pid
+
+
+def update_training_package(
+    training_package_id: int,
+    data: dict,
+    work_type_ids: list[int],
+    training_ids: list[int],
+    actor_id: Optional[int] = None,
+) -> None:
+    name = (data.get("name") or "").strip()
+    notes = (data.get("notes") or "").strip() or None
+    if not name:
+        raise ValueError("required")
+    with db_session() as conn:
+        conn.execute(
+            """
+            UPDATE training_packages
+            SET name = ?, notes = ?, updated_at = ?, updated_by = ?
+            WHERE id = ? AND (deleted_at IS NULL OR deleted_at = '')
+            """,
+            (name, notes, now_iso(), actor_id, training_package_id),
+        )
+        _set_training_package_links(
+            conn, training_package_id, work_type_ids, training_ids
+        )
+        log_activity(
+            conn,
+            user_id=actor_id,
+            action="update",
+            entity_type="training_package",
+            entity_id=training_package_id,
+            details=f"تعديل باقة تدريب: {name}",
+        )
+
+
+def soft_delete_training_package(training_package_id: int, actor_id: int) -> bool:
+    with db_session() as conn:
+        row = conn.execute(
+            f"SELECT * FROM training_packages WHERE id = ? AND {NOT_DELETED}",
+            (training_package_id,),
+        ).fetchone()
+        if not row:
+            return False
+        conn.execute(
+            """
+            UPDATE training_packages
+            SET deleted_at = ?, deleted_by = ?, updated_at = ?, updated_by = ?
+            WHERE id = ?
+            """,
+            (now_iso(), actor_id, now_iso(), actor_id, training_package_id),
+        )
+        log_activity(
+            conn,
+            user_id=actor_id,
+            action="delete",
+            entity_type="training_package",
+            entity_id=training_package_id,
+            details=f"حذف باقة تدريب: {row['name']}",
+        )
+    return True
+
+
+def restore_training_package(training_package_id: int, actor_id: int) -> bool:
+    with db_session() as conn:
+        row = conn.execute(
+            "SELECT * FROM training_packages WHERE id = ?",
+            (training_package_id,),
+        ).fetchone()
+        if not row or not row["deleted_at"]:
+            return False
+        conn.execute(
+            """
+            UPDATE training_packages
+            SET deleted_at = NULL, deleted_by = NULL,
+                updated_at = ?, updated_by = ?
+            WHERE id = ?
+            """,
+            (now_iso(), actor_id, training_package_id),
+        )
+        log_activity(
+            conn,
+            user_id=actor_id,
+            action="restore",
+            entity_type="training_package",
+            entity_id=training_package_id,
+            details=f"استرجاع باقة تدريب: {row['name']}",
+        )
+    return True
+
+
+def purge_training_package(training_package_id: int, actor_id: int) -> bool:
+    with db_session() as conn:
+        row = conn.execute(
+            "SELECT * FROM training_packages WHERE id = ?",
+            (training_package_id,),
+        ).fetchone()
+        if not row or not row["deleted_at"]:
+            return False
+        conn.execute(
+            "DELETE FROM training_package_work_types WHERE training_package_id = ?",
+            (training_package_id,),
+        )
+        conn.execute(
+            "DELETE FROM training_package_sections WHERE training_package_id = ?",
+            (training_package_id,),
+        )
+        conn.execute(
+            "DELETE FROM training_packages WHERE id = ?", (training_package_id,)
+        )
+        log_activity(
+            conn,
+            user_id=actor_id,
+            action="purge",
+            entity_type="training_package",
+            entity_id=training_package_id,
+            details=f"حذف نهائي لباقة تدريب: {row['name']}",
+        )
+    return True
+
+
+# ---------------------------------------------------------------------------
 # Trash
 # ---------------------------------------------------------------------------
 
@@ -1957,6 +2282,15 @@ def list_trash(q: str = "") -> list[dict]:
                 SELECT id, name AS title, notes AS subtitle,
                        deleted_at, deleted_by
                 FROM packages WHERE {IS_DELETED}
+                """,
+            ),
+            (
+                "training_package",
+                "باقة تدريب",
+                f"""
+                SELECT id, name AS title, notes AS subtitle,
+                       deleted_at, deleted_by
+                FROM training_packages WHERE {IS_DELETED}
                 """,
             ),
             (
@@ -2015,6 +2349,10 @@ def restore_trash_item(
         "system": lambda: (restore_system(item_id, actor_id), ""),
         "work_type": lambda: (restore_work_type(item_id, actor_id), ""),
         "package": lambda: (restore_package(item_id, actor_id), ""),
+        "training_package": lambda: (
+            restore_training_package(item_id, actor_id),
+            "",
+        ),
         "training_section": lambda: (restore_section(item_id, actor_id), ""),
         "problem_section": lambda: (restore_section(item_id, actor_id), ""),
         "task": lambda: (restore_task(item_id, actor_id), ""),
@@ -2036,6 +2374,10 @@ def purge_trash_item(
         "system": lambda: (purge_system(item_id, actor_id), ""),
         "work_type": lambda: (purge_work_type(item_id, actor_id), ""),
         "package": lambda: (purge_package(item_id, actor_id), ""),
+        "training_package": lambda: (
+            purge_training_package(item_id, actor_id),
+            "",
+        ),
         "training_section": lambda: (purge_section(item_id, actor_id), ""),
         "problem_section": lambda: (purge_section(item_id, actor_id), ""),
         "task": lambda: (purge_task(item_id, actor_id), ""),

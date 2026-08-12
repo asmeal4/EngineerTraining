@@ -17,12 +17,13 @@
     </div>
     <nav class="nav">
       <a href="/" class="{% if request.url.path == '/' %}active{% endif %}">لوحة التحكم</a>
-      <a href="/training" class="{% if request.url.path.startswith('/training') %}active{% endif %}">التدريب</a>
+      <a href="/training" class="{% if request.url.path.startswith('/training') and not request.url.path.startswith('/training-packages') %}active{% endif %}">التدريب</a>
       <a href="/problems" class="{% if request.url.path.startswith('/problems') %}active{% endif %}">أكثر المشكلات</a>
       <a href="/tasks" class="{% if request.url.path.startswith('/tasks') %}active{% endif %}">مهام</a>
       <a href="/systems" class="{% if request.url.path.startswith('/systems') %}active{% endif %}">الأنظمة</a>
       <a href="/work-types" class="{% if request.url.path.startswith('/work-types') %}active{% endif %}">نوع العمل</a>
       <a href="/packages" class="{% if request.url.path.startswith('/packages') %}active{% endif %}">الباقات</a>
+      <a href="/training-packages" class="{% if request.url.path.startswith('/training-packages') %}active{% endif %}">باقات تدريب</a>
       <a href="/trash" class="{% if request.url.path.startswith('/trash') %}active{% endif %}">سلة المحذوفات</a>
       <a href="/activity" class="{% if request.url.path.startswith('/activity') %}active{% endif %}">سجل النشاط</a>
       <a href="/users" class="{% if request.url.path.startswith('/users') %}active{% endif %}">المهندسين</a>
